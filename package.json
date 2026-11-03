@@ -1,6 +1,6 @@
 {
   "name": "kuebiko-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Kuebiko - the autonomous on-call engineer for your terminal. Runs your tests, diagnoses failures, patches code, and re-runs until green.",
   "type": "module",
   "bin": {
