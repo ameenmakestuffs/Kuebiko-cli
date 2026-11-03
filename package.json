@@ -25,7 +25,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx src/cli/index.ts",
     "start": "node dist/cli/index.js",
-    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "test": "node --import tsx --test test/*.test.ts",
     "demo": "node dist/cli/index.js demo",
     "demo:offline": "node dist/cli/index.js demo --offline",
     "demo:reset": "node dist/cli/index.js demo --seed-only",
