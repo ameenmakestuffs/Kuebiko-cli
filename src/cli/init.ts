@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import * as readline from "node:readline";
+import { Writable } from "node:stream";
 import { isProviderId, PROVIDER_DEFAULT_MODELS } from "../core/models.js";
 import type { ProviderId } from "../core/types.js";
 import { TAGLINE, VERSION } from "../core/version.js";
@@ -74,48 +75,33 @@ function promptText(question: string, defaultValue = ""): Promise<string> {
 
 function promptSecret(question: string): Promise<string> {
   return new Promise((resolve) => {
-    const stdin = process.stdin;
-    const stdout = process.stdout;
+    process.stdout.write(`${question}: `);
 
-    stdout.write(`${question}: `);
-
-    if (!stdin.isTTY) {
-      const rl = readline.createInterface({ input: stdin, output: stdout });
-      rl.question("", (answer) => {
-        rl.close();
-        resolve(answer.trim());
-      });
-      return;
-    }
-
-    stdin.setRawMode(true);
-    stdin.resume();
-
-    let inputStr = "";
-    const onData = (chunk: Buffer) => {
-      const char = chunk.toString();
-      if (char === "\r" || char === "\n") {
-        stdin.setRawMode(false);
-        stdin.removeListener("data", onData);
-        stdout.write("\n");
-        resolve(inputStr.trim());
-      } else if (char === "\u0003") {
-        // Ctrl+C
-        stdin.setRawMode(false);
-        process.exit(130);
-      } else if (char === "\b" || char === "\x7f") {
-        // Backspace
-        if (inputStr.length > 0) {
-          inputStr = inputStr.slice(0, -1);
-          stdout.write("\b \b");
+    const mutableStdout = new Writable({
+      write(chunk, encoding, callback) {
+        const str = chunk.toString();
+        if (str === "\r\n" || str === "\n") {
+          process.stdout.write("\n");
+        } else if (str.includes("\x1b") || str.includes("\b")) {
+          process.stdout.write(chunk, encoding);
+        } else {
+          process.stdout.write("*".repeat(str.length));
         }
-      } else if (char >= " ") {
-        inputStr += char;
-        stdout.write("*");
-      }
-    };
+        callback();
+      },
+    });
 
-    stdin.on("data", onData);
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: mutableStdout,
+      terminal: true,
+    });
+
+    rl.question("", (answer) => {
+      rl.close();
+      const cleaned = answer.replace(/^["']|["']$/g, "").trim();
+      resolve(cleaned);
+    });
   });
 }
 
@@ -188,36 +174,45 @@ export async function runInit(cwd: string): Promise<number> {
 
   let apiKey = "";
   let baseUrl = "";
+  let verified = false;
 
-  if (selected.id === "ollama") {
-    baseUrl = await promptText("Enter Ollama base URL", "http://localhost:11434");
-  } else {
-    process.stdout.write(`  ${theme.muted("💡 Don't have a key yet? Get one at:")}\n  ${theme.brand(selected.keyUrl)}\n\n`);
-    apiKey = await promptSecret(`Enter your ${selected.name} API Key (${selected.envKey})`);
-    if (!apiKey) {
-      ui.fail("API key cannot be empty.");
-      return 1;
+  while (!verified) {
+    if (selected.id === "ollama") {
+      baseUrl = await promptText("Enter Ollama base URL", "http://localhost:11434");
+    } else {
+      process.stdout.write(`  ${theme.muted("💡 Don't have a key yet? Get one at:")}\n  ${theme.brand(selected.keyUrl)}\n\n`);
+      apiKey = await promptSecret(`Enter your ${selected.name} API Key (${selected.envKey})`);
+      if (!apiKey) {
+        ui.fail("API key cannot be empty.");
+        return 1;
+      }
     }
-  }
 
-  // Live verification
-  const testModel = PROVIDER_DEFAULT_MODELS[selected.id][0] ?? "";
-  const task = ui.task(`Testing connection to ${selected.name}...`);
+    // Live verification
+    const testModel = PROVIDER_DEFAULT_MODELS[selected.id][0] ?? "";
+    const task = ui.task(`Testing connection to ${selected.name}...`);
 
-  try {
-    const settings = {
-      id: selected.id,
-      apiKey: apiKey || undefined,
-      baseUrl: baseUrl || undefined,
-    };
-    await verifyAi(selected.id, settings, testModel);
-    task.succeed(`Connected successfully to ${selected.name}!`);
-  } catch (error) {
-    task.warn(`Verification check had an issue: ${error instanceof Error ? error.message : String(error)}`);
-    const proceed = await promptText("Save this configuration anyway? (y/N)", "n");
-    if (proceed.toLowerCase() !== "y") {
-      ui.muted("Setup aborted. No changes made.");
-      return 1;
+    try {
+      const settings = {
+        id: selected.id,
+        apiKey: apiKey || undefined,
+        baseUrl: baseUrl || undefined,
+      };
+      await verifyAi(selected.id, settings, testModel);
+      task.succeed(`Connected successfully to ${selected.name}!`);
+      verified = true;
+    } catch (error) {
+      task.warn(`Verification check failed: ${error instanceof Error ? error.message : String(error)}`);
+      process.stdout.write("\n");
+      const action = await promptText("Options: [r]etry key, [s]ave anyway, [a]bort", "r");
+      const normalized = action.toLowerCase();
+      if (normalized === "s") {
+        break;
+      } else if (normalized === "a") {
+        ui.muted("Setup aborted. No changes made.");
+        return 1;
+      }
+      process.stdout.write("\n");
     }
   }
 
@@ -257,3 +252,4 @@ export async function runInit(cwd: string): Promise<number> {
 
   return 0;
 }
+
