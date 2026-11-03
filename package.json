@@ -47,11 +47,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ameen-ansarii/Aegis-CLI.git"
+    "url": "git+https://github.com/ameenmakestuffs/Kuebiko-cli.git"
   },
-  "homepage": "https://github.com/ameen-ansarii/Aegis-CLI#readme",
+  "homepage": "https://github.com/ameenmakestuffs/Kuebiko-cli#readme",
   "bugs": {
-    "url": "https://github.com/ameen-ansarii/Aegis-CLI/issues"
+    "url": "https://github.com/ameenmakestuffs/Kuebiko-cli/issues"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",

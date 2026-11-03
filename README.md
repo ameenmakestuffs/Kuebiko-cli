@@ -102,7 +102,7 @@ Kuebiko repairs any text source file the model can edit. Triage and the local de
 ## GitHub Actions
 
 ```yaml
-- uses: ameen-ansarii/Aegis-CLI@main
+- uses: ameenmakestuffs/Kuebiko-cli@main
   with:
     command: npm test
     engine: auto
