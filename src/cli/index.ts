@@ -54,7 +54,7 @@ function resolveProviderOption(value: string | undefined): ProviderId | undefine
 
 async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<number> {
   const command = commandParts.join(" ").trim();
-  if (!command) throw new Error("Provide a command to run, e.g. aegis run \"npm test\"");
+  if (!command) throw new Error("Provide a command to run, e.g. kuebiko run \"npm test\"");
 
   const cwd = resolveProjectCwd(cli.cwd);
   if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
@@ -113,9 +113,9 @@ async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<n
 const program = new Command();
 
 program
-  .name("aegis")
-  .description("Aegis — the autonomous on-call engineer for your terminal.")
-  .version(VERSION, "-V, --version", "print the Aegis version")
+  .name("kuebiko")
+  .description("Kuebiko — the autonomous on-call engineer for your terminal.")
+  .version(VERSION, "-V, --version", "print the Kuebiko version")
   .helpOption("-h, --help", "show help");
 
 program
@@ -160,7 +160,7 @@ program
 
 program
   .command("demo")
-  .description("Reseed the bundled demo bug, then let Aegis diagnose and heal it.")
+  .description("Reseed the bundled demo bug, then let Kuebiko diagnose and heal it.")
   .option("--offline", "force the local repair engine")
   .option("--dry-run", "show the proposed fix without writing it")
   .option("--seed-only", "restore the seeded demo bug and exit")

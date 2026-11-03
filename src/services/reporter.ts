@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { SessionReport } from "../core/types.js";
 import { atomicWriteFile } from "../util/fs.js";
 
 export async function writeReport(root: string, report: SessionReport): Promise<string> {
-  const dir = join(root, ".aegis", "reports");
+  const dirName = existsSync(join(root, ".aegis")) && !existsSync(join(root, ".kuebiko")) ? ".aegis" : ".kuebiko";
+  const dir = join(root, dirName, "reports");
   const fileName = `${report.id}.json`;
   const absolute = join(dir, fileName);
   const payload = `${JSON.stringify(report, null, 2)}\n`;
@@ -26,5 +28,5 @@ export function makeSessionId(): string {
     String(now.getSeconds()).padStart(2, "0"),
   ].join("");
   const random = Math.random().toString(36).slice(2, 7);
-  return `aegis-${stamp}-${random}`;
+  return `kuebiko-${stamp}-${random}`;
 }

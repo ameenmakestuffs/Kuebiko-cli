@@ -1,6 +1,6 @@
 <div align="center">
 
-# Aegis
+# Kuebiko
 
 **The autonomous, safety-first on-call engineer for your CLI.**
 
@@ -8,7 +8,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org)
 
-Run a failing command once. Aegis triages the failure, patches the code through a resilient AI ladder, verifies the fix, and keeps it only if the build turns green.
+Run a failing command once. Kuebiko triages the failure, patches the code through a resilient AI ladder, verifies the fix, and keeps it only if the build turns green.
 
 </div>
 
@@ -17,14 +17,14 @@ Run a failing command once. Aegis triages the failure, patches the code through 
 ## Quick start
 
 ```bash
-npm install -g aegis-cli
-aegis run "npm test"
+npm install -g kuebiko-cli
+kuebiko run "npm test"
 ```
 
 No install? Try the deterministic sandbox:
 
 ```bash
-npx aegis-cli demo
+npx kuebiko-cli demo
 ```
 
 Add a model provider (Gemini is the default):
@@ -33,15 +33,15 @@ Add a model provider (Gemini is the default):
 cp .env.example .env
 # set GEMINI_API_KEY
 
-aegis doctor --live
+kuebiko doctor --live
 ```
 
-Aegis works without a key by falling back to its deterministic local repair engine. Requires Node.js 20.11+.
+Kuebiko works without a key by falling back to its deterministic local repair engine. Requires Node.js 20.11+.
 
 ## How it works
 
 ```
-  aegis run "npm test"
+  kuebiko run "npm test"
           │
           ▼
 ┌─────────────────────┐
@@ -68,7 +68,7 @@ Aegis works without a key by falling back to its deterministic local repair engi
            └── no  ──> Rollback      → restore original, retry (max 3)
 ```
 
-Every attempt is bounded, reversible, and auditable. Aegis never keeps a patch that has not been verified by the real command.
+Every attempt is bounded, reversible, and auditable. Kuebiko never keeps a patch that has not been verified by the real command.
 
 ## Multi-tier resilience ladder
 
@@ -78,11 +78,11 @@ Every attempt is bounded, reversible, and auditable. Aegis never keeps a patch t
 | 2 | `gemini-3.5-flash-lite` | High-headroom fallback for rate limits and 503 failover |
 | 3 | Local AST Mutation Engine | Deterministic, offline repair with zero network dependency |
 
-If Tier 1 is rate-limited, unavailable, times out, or declines to patch, Aegis advances automatically. Tier 2 handles sustained load. Tier 3 guarantees the loop still works offline.
+If Tier 1 is rate-limited, unavailable, times out, or declines to patch, Kuebiko advances automatically. Tier 2 handles sustained load. Tier 3 guarantees the loop still works offline.
 
 ### Bring your own model
 
-The ladder is model-agnostic. Select a provider with `--provider`, `AEGIS_PROVIDER`, or auto-detection.
+The ladder is model-agnostic. Select a provider with `--provider`, `KUEBIKO_PROVIDER`, or auto-detection.
 
 | Provider | Authentication | Default ladder |
 | --- | --- | --- |
@@ -93,11 +93,11 @@ The ladder is model-agnostic. Select a provider with `--provider`, `AEGIS_PROVID
 | AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `BEDROCK_MODEL` | `BEDROCK_MODEL` |
 | Ollama | `OLLAMA_BASE_URL` or `OLLAMA_HOST` | `llama3.1` |
 
-Override with `AEGIS_MODEL`, a provider-specific model variable, or `--model`.
+Override with `KUEBIKO_MODEL`, a provider-specific model variable, or `--model`.
 
 ## Supported languages
 
-Aegis repairs any text source file the model can edit. Triage and the local deterministic engine currently have dedicated adapters for JavaScript/TypeScript, Python, and Go.
+Kuebiko repairs any text source file the model can edit. Triage and the local deterministic engine currently have dedicated adapters for JavaScript/TypeScript, Python, and Go.
 
 ## GitHub Actions
 
@@ -110,66 +110,58 @@ Aegis repairs any text source file the model can edit. Triage and the local dete
     GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 ```
 
-Set the provider key as an environment secret; the Action never asks for keys as inputs. Add `.aegis/` to your repository's `.gitignore`. The Action exposes `report-path` for artifact upload.
+Set the provider key as an environment secret; the Action never asks for keys as inputs. Add `.kuebiko/` to your repository's `.gitignore`. The Action exposes `report-path` for artifact upload.
 
 ## Benchmark
 
-`aegis bench` runs the bundled JavaScript, Python, and Go repair fixtures in isolated temporary copies, then reports verified repair rate and median time-to-green. It uses the local engine by default for deterministic CI runs.
+`kuebiko bench` runs the bundled JavaScript, Python, and Go repair fixtures in isolated temporary copies, then reports verified repair rate and median time-to-green. It uses the local engine by default for deterministic CI runs.
 
 ```bash
-aegis bench              # deterministic local benchmark
-aegis bench --live       # exercise the configured AI provider
-aegis bench --json       # machine-readable results
+kuebiko bench              # deterministic local benchmark
+kuebiko bench --live       # exercise the configured AI provider
+kuebiko bench --json       # machine-readable results
 ```
 
-Benchmark reports are written to `.aegis/bench/latest.json`. Add your own suite with `--suite path/to/suite.json`; see `bench/suites/starter/suite.json` for the format.
+Benchmark reports are written to `.kuebiko/bench/latest.json`. Add your own suite with `--suite path/to/suite.json`; see `bench/suites/starter/suite.json` for the format.
 
 ## Enterprise safety guarantees
 
 - **Root confinement** — every write must resolve inside the project root; traversal is rejected.
-- **Protected file blacklist** — `.env`, lockfiles, `node_modules`, `.git`, `dist`, `build`, and `.aegis` are immutable.
+- **Protected file blacklist** — `.env`, lockfiles, `node_modules`, `.git`, `dist`, `build`, `.kuebiko`, and `.aegis` are immutable.
 - **Auto-rollback** — any patch that does not turn the command green is restored byte-for-byte.
 - **Zero runaway loops** — hard attempt cap, per-run timeout, bounded candidate search, and duplicate-patch rejection.
 - **Atomic writes and backups** — temp-file writes, per-session backups, and interrupt-safe restoration.
 - **Secret redaction** — API keys and tokens are stripped before any context leaves the machine.
-- **Audit trail** — every session writes `.aegis/reports/<session>.json` with patches, model, and verification status.
+- **Audit trail** — every session writes `.kuebiko/reports/<session>.json` with patches, model, and verification status.
 
 ## CLI reference
 
 | Command | Description |
 | --- | --- |
-| `aegis run "<command>"` | Run, diagnose, patch, verify, and repeat until green. |
-| `aegis demo` | Reseed the bundled failing sandbox and run the full loop. |
-| `aegis doctor` | Check Node, write access, provider, and engine configuration. |
-| `aegis doctor --live` | Verify the live provider ladder end to end. |
-| `aegis bench` | Run the deterministic multi-language repair benchmark. |
+| `kuebiko run "<cmd>"` | Run the target command, repair on failure, and verify until green |
+| `kuebiko doctor` | Inspect Node version, project permissions, and AI credentials |
+| `kuebiko demo` | Reseed and run the bundled demo bug in `demo-sandbox/` |
+| `kuebiko bench` | Run polyglot benchmark fixtures and report pass rate and latency |
 
-| Flag | Applies to | Description |
+### Key flags for `kuebiko run`
+
+| Flag | Default | Description |
 | --- | --- | --- |
-| `--cwd <dir>` | `run` | Project directory to operate on. |
-| `--provider <name>` | `run`, `doctor`, `bench` | gemini, openai, anthropic, azure, bedrock, or ollama. |
-| `--model <model>` | `run`, `doctor`, `bench` | Primary model override. |
-| `--timeout <seconds>` | `run`, `bench` | Timeout per command run (default `300` / `60`). |
-| `--max-iterations <n>` | `run` | Maximum repair attempts (default `3`). |
-| `--offline` | `run`, `demo` | Skip AI; use the local engine only. |
-| `--dry-run` | `run`, `demo` | Propose the patch without keeping it. |
-| `--json` | `run`, `bench` | Emit a machine-readable report. |
-| `--verbose` | `run` | Show full output and stack traces. |
-| `--live` | `doctor`, `bench` | Make real provider calls instead of static/local checks. |
+| `-C, --cwd <dir>` | `.` | Working directory of the target project |
+| `-i, --max-iterations <n>` | `3` | Maximum repair attempts before giving up |
+| `--engine <mode>` | `auto` | `auto`, `ai`, `gemini`, or `local` |
+| `--provider <name>` | `auto` | `gemini`, `openai`, `anthropic`, `azure`, `bedrock`, or `ollama` |
+| `--model <model>` | `gemini-3.8-flash` | Override the default primary model |
+| `--timeout <seconds>` | `300` | Timeout per command execution |
+| `--max-candidates <n>` | `48` | Mutation budget for the local repair tier |
+| `--offline` | `false` | Disable all AI providers and rely strictly on local mutation |
+| `--dry-run` | `false` | Diagnose and propose the patch without writing files |
+| `--json` | `false` | Output pure JSON (ideal for CI and scripting) |
+| `-v, --verbose` | `false` | Print full command streams and stack traces |
 
-## Configuration
+## Configuration (`kuebiko.config.json`)
 
-Aegis resolves configuration in this order: process environment, project `.env`, global `~/.aegis/.env`.
-
-```bash
-# .env
-GEMINI_API_KEY=...
-AEGIS_PROVIDER=gemini        # optional: gemini, openai, anthropic, azure, bedrock, ollama
-AEGIS_MODEL=gemini-3.8-flash # optional: generic override
-AEGIS_ENGINE=auto            # auto, ai, gemini, or local
-```
-
-Provider-specific keys and model variables are listed in “Bring your own model.” Project-level behavior can be tuned with `aegis.config.json`:
+Configure defaults at the project root:
 
 ```json
 {
@@ -187,9 +179,9 @@ Provider-specific keys and model variables are listed in “Bring your own model
 `demo-sandbox/` is a real storefront module with a seeded discount-sign bug and a `node:test` suite.
 
 ```bash
-aegis demo            # reseed, diagnose, repair, verify
-aegis demo --offline  # exercise the local tier
-aegis demo --dry-run  # inspect the patch without keeping it
+kuebiko demo            # reseed, diagnose, repair, verify
+kuebiko demo --offline  # exercise the local tier
+kuebiko demo --dry-run  # inspect the patch without keeping it
 ```
 
 ## Development

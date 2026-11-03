@@ -69,7 +69,7 @@ interface BenchReport {
 }
 
 const DEFAULT_SUITE = fileURLToPath(new URL("../../bench/suites/starter/suite.json", import.meta.url));
-const SKIPPED_ENTRIES = new Set(["node_modules", ".git", ".aegis", "dist", "build", "coverage", "__pycache__", ".venv"]);
+const SKIPPED_ENTRIES = new Set(["node_modules", ".git", ".kuebiko", ".aegis", "dist", "build", "coverage", "__pycache__", ".venv"]);
 
 function parseInteger(value: string | undefined, fallback: number, min: number, max: number, label: string): number {
   if (value === undefined) return fallback;
@@ -177,7 +177,7 @@ function median(values: number[]): number {
 
 function printReport(report: BenchReport): void {
   const nameWidth = Math.max(18, ...report.cases.map((entry) => entry.name.length));
-  process.stdout.write(`\n  Aegis repair bench · ${report.suite}\n\n`);
+  process.stdout.write(`\n  Kuebiko repair bench · ${report.suite}\n\n`);
   process.stdout.write(`  ${"case".padEnd(nameWidth)}  result   engine/model                 time\n`);
   process.stdout.write(`  ${"─".repeat(nameWidth)}  ───────  ───────────────────────────  ──────\n`);
   for (const entry of report.cases) {
@@ -326,9 +326,13 @@ export async function runBench(options: BenchCliOptions): Promise<number> {
     },
   };
 
+  const benchDir =
+    existsSync(join(process.cwd(), ".aegis")) && !existsSync(join(process.cwd(), ".kuebiko"))
+      ? ".aegis"
+      : ".kuebiko";
   const output = options.output
     ? resolve(process.cwd(), options.output)
-    : join(process.cwd(), ".aegis", "bench", "latest.json");
+    : join(process.cwd(), benchDir, "bench", "latest.json");
   await atomicWriteFile(output, `${JSON.stringify(report, null, 2)}\n`);
 
   if (options.json) {

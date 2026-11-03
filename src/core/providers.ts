@@ -158,7 +158,7 @@ function settingsFor(provider: ProviderId): { settings?: ProviderSettings; error
 }
 
 function detectProvider(): ProviderId | null {
-  const configured = clean(process.env.AEGIS_PROVIDER).toLowerCase();
+  const configured = clean(process.env.KUEBIKO_PROVIDER ?? process.env.AEGIS_PROVIDER).toLowerCase();
   if (configured && configured !== "auto") {
     return isProviderId(configured) ? configured : null;
   }
@@ -187,7 +187,7 @@ export function resolveProvider(input: ResolveProviderInput = {}): ProviderResol
   }
 
   const requested = clean(input.requested).toLowerCase();
-  const configured = clean(process.env.AEGIS_PROVIDER).toLowerCase();
+  const configured = clean(process.env.KUEBIKO_PROVIDER ?? process.env.AEGIS_PROVIDER).toLowerCase();
   const invalid = requested && requested !== "auto" && !isProviderId(requested)
     ? requested
     : !requested && configured && configured !== "auto" && !isProviderId(configured)
@@ -222,7 +222,7 @@ export function resolveProvider(input: ResolveProviderInput = {}): ProviderResol
   const configModel = clean(input.configModel);
   const configuredModel =
     clean(input.model) ||
-    firstEnv("AEGIS_MODEL", MODEL_ENV[provider]) ||
+    firstEnv("KUEBIKO_MODEL", "AEGIS_MODEL", MODEL_ENV[provider]) ||
     (configModel && (provider === "gemini" || configModel !== PRIMARY_MODEL) ? configModel : "");
 
   const models = buildProviderLadder(provider, configuredModel);

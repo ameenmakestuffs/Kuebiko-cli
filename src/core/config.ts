@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { AegisConfig, EngineMode } from "./types.js";
+import type { EngineMode, KuebikoConfig } from "./types.js";
 import { PRIMARY_MODEL } from "./models.js";
 
 const DEFAULT_IGNORE = [
@@ -9,6 +9,7 @@ const DEFAULT_IGNORE = [
   "dist",
   "build",
   "coverage",
+  ".kuebiko",
   ".aegis",
   ".next",
   ".turbo",
@@ -17,7 +18,7 @@ const DEFAULT_IGNORE = [
   "__pycache__",
 ];
 
-const DEFAULT_CONFIG: AegisConfig = {
+const DEFAULT_CONFIG: KuebikoConfig = {
   maxIterations: 3,
   timeoutMs: 300_000,
   model: PRIMARY_MODEL,
@@ -27,7 +28,12 @@ const DEFAULT_CONFIG: AegisConfig = {
 };
 
 function readJsonConfig(cwd: string): Record<string, unknown> {
-  const candidates = [join(cwd, "aegis.config.json"), join(process.cwd(), "aegis.config.json")];
+  const candidates = [
+    join(cwd, "kuebiko.config.json"),
+    join(process.cwd(), "kuebiko.config.json"),
+    join(cwd, "aegis.config.json"),
+    join(process.cwd(), "aegis.config.json"),
+  ];
   for (const file of candidates) {
     if (!existsSync(file)) continue;
     try {
@@ -36,7 +42,7 @@ function readJsonConfig(cwd: string): Record<string, unknown> {
         return parsed as Record<string, unknown>;
       }
     } catch {
-      // A broken config should never stop Aegis from running.
+      // A broken config should never stop Kuebiko from running.
     }
   }
   return {};
@@ -53,11 +59,12 @@ function asEngine(value: unknown): EngineMode | undefined {
   return value === "auto" || value === "ai" || value === "gemini" || value === "local" ? value : undefined;
 }
 
-export function loadConfig(cwd: string): AegisConfig {
+export function loadConfig(cwd: string): KuebikoConfig {
   const file = readJsonConfig(cwd);
-  const envEngine = asEngine(process.env.AEGIS_ENGINE);
+  const envEngine = asEngine(process.env.KUEBIKO_ENGINE ?? process.env.AEGIS_ENGINE);
   const fileEngine = asEngine(file.engine);
   const provider =
+    process.env.KUEBIKO_PROVIDER ??
     process.env.AEGIS_PROVIDER ??
     (typeof file.provider === "string" && file.provider.trim() ? file.provider.trim() : undefined);
 
@@ -67,18 +74,19 @@ export function loadConfig(cwd: string): AegisConfig {
 
   return {
     maxIterations: asPositiveInt(
-      process.env.AEGIS_MAX_ITERATIONS ?? file.maxIterations,
+      process.env.KUEBIKO_MAX_ITERATIONS ?? process.env.AEGIS_MAX_ITERATIONS ?? file.maxIterations,
       DEFAULT_CONFIG.maxIterations,
       1,
       10,
     ),
     timeoutMs: asPositiveInt(
-      process.env.AEGIS_TIMEOUT_MS ?? file.timeoutMs,
+      process.env.KUEBIKO_TIMEOUT_MS ?? process.env.AEGIS_TIMEOUT_MS ?? file.timeoutMs,
       DEFAULT_CONFIG.timeoutMs,
       10_000,
       3_600_000,
     ),
     model:
+      process.env.KUEBIKO_MODEL ??
       process.env.AEGIS_MODEL ??
       (typeof file.model === "string" && file.model.trim() ? file.model.trim() : DEFAULT_CONFIG.model),
     provider,

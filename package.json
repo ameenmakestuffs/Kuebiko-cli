@@ -1,9 +1,11 @@
 {
-  "name": "aegis-cli",
+  "name": "kuebiko-cli",
   "version": "0.1.1",
-  "description": "The autonomous on-call engineer for your terminal. Runs your tests, diagnoses failures, patches code, and re-runs until green.",
+  "description": "Kuebiko - the autonomous on-call engineer for your terminal. Runs your tests, diagnoses failures, patches code, and re-runs until green.",
   "type": "module",
   "bin": {
+    "kuebiko": "dist/cli/index.js",
+    "kuebiko-cli": "dist/cli/index.js",
     "aegis": "dist/cli/index.js"
   },
   "main": "dist/cli/index.js",

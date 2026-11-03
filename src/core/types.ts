@@ -109,7 +109,7 @@ export interface SessionReport {
   message: string;
 }
 
-export interface AegisConfig {
+export interface KuebikoConfig {
   maxIterations: number;
   timeoutMs: number;
   model: string;
@@ -118,6 +118,8 @@ export interface AegisConfig {
   maxCandidates: number;
   ignore: string[];
 }
+
+export type AegisConfig = KuebikoConfig;
 
 export interface VerifyResult {
   green: boolean;

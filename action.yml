@@ -1,4 +1,4 @@
-name: Aegis Verified Repair
+name: Kuebiko Verified Repair
 description: Run a command, repair failures through a safety-first AI ladder, and verify the patch before keeping it.
 author: Ameen Ansari
 branding:
@@ -39,13 +39,13 @@ inputs:
     required: false
     default: "false"
   node-version:
-    description: Node.js version used to run Aegis.
+    description: Node.js version used to run Kuebiko.
     required: false
     default: "20"
 
 outputs:
   report-path:
-    description: Path to the generated Aegis session report.
+    description: Path to the generated Kuebiko session report.
     value: ${{ steps.repair.outputs.report-path }}
 
 runs:
@@ -56,12 +56,12 @@ runs:
       with:
         node-version: ${{ inputs['node-version'] }}
 
-    - name: Install Aegis
+    - name: Install Kuebiko
       shell: bash
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
-    - name: Build Aegis
+    - name: Build Kuebiko
       shell: bash
       working-directory: ${{ github.action_path }}
       run: npm run build
@@ -71,36 +71,40 @@ runs:
       shell: bash
       env:
         NO_SPINNER: "1"
-        AEGIS_ACTION_PATH: ${{ github.action_path }}
-        AEGIS_COMMAND: ${{ inputs.command }}
-        AEGIS_CWD: ${{ inputs.cwd }}
-        AEGIS_ENGINE: ${{ inputs.engine }}
-        AEGIS_PROVIDER: ${{ inputs.provider }}
-        AEGIS_MODEL: ${{ inputs.model }}
-        AEGIS_TIMEOUT: ${{ inputs.timeout }}
-        AEGIS_MAX_ITERATIONS: ${{ inputs['max-iterations'] }}
-        AEGIS_OFFLINE: ${{ inputs.offline }}
+        KUEBIKO_ACTION_PATH: ${{ github.action_path }}
+        KUEBIKO_COMMAND: ${{ inputs.command }}
+        KUEBIKO_CWD: ${{ inputs.cwd }}
+        KUEBIKO_ENGINE: ${{ inputs.engine }}
+        KUEBIKO_PROVIDER: ${{ inputs.provider }}
+        KUEBIKO_MODEL: ${{ inputs.model }}
+        KUEBIKO_TIMEOUT: ${{ inputs.timeout }}
+        KUEBIKO_MAX_ITERATIONS: ${{ inputs['max-iterations'] }}
+        KUEBIKO_OFFLINE: ${{ inputs.offline }}
       run: |
         set -euo pipefail
-        cwd="$AEGIS_CWD"
+        cwd="$KUEBIKO_CWD"
         if [ "$cwd" = "." ]; then
           cwd="$GITHUB_WORKSPACE"
         elif [[ "$cwd" != /* ]]; then
           cwd="$GITHUB_WORKSPACE/$cwd"
         fi
 
-        args=("run" "$AEGIS_COMMAND" "--cwd" "$cwd" "--engine" "$AEGIS_ENGINE" "--timeout" "$AEGIS_TIMEOUT" "--max-iterations" "$AEGIS_MAX_ITERATIONS")
-        if [ -n "$AEGIS_PROVIDER" ] && [ "$AEGIS_PROVIDER" != "auto" ]; then
-          args+=("--provider" "$AEGIS_PROVIDER")
+        args=("run" "$KUEBIKO_COMMAND" "--cwd" "$cwd" "--engine" "$KUEBIKO_ENGINE" "--timeout" "$KUEBIKO_TIMEOUT" "--max-iterations" "$KUEBIKO_MAX_ITERATIONS")
+        if [ -n "$KUEBIKO_PROVIDER" ] && [ "$KUEBIKO_PROVIDER" != "auto" ]; then
+          args+=("--provider" "$KUEBIKO_PROVIDER")
         fi
-        if [ -n "$AEGIS_MODEL" ]; then
-          args+=("--model" "$AEGIS_MODEL")
+        if [ -n "$KUEBIKO_MODEL" ]; then
+          args+=("--model" "$KUEBIKO_MODEL")
         fi
-        if [ "$AEGIS_OFFLINE" = "true" ]; then
+        if [ "$KUEBIKO_OFFLINE" = "true" ]; then
           args+=("--offline")
         fi
 
         status=0
-        node "$AEGIS_ACTION_PATH/dist/cli/index.js" "${args[@]}" || status=$?
-        echo "report-path=$cwd/.aegis/reports/latest.json" >> "$GITHUB_OUTPUT"
+        node "$KUEBIKO_ACTION_PATH/dist/cli/index.js" "${args[@]}" || status=$?
+        if [ -f "$cwd/.kuebiko/reports/latest.json" ]; then
+          echo "report-path=$cwd/.kuebiko/reports/latest.json" >> "$GITHUB_OUTPUT"
+        else
+          echo "report-path=$cwd/.aegis/reports/latest.json" >> "$GITHUB_OUTPUT"
+        fi
         exit $status

@@ -14,7 +14,7 @@ export interface DoctorOptions {
 }
 
 function engineMode(): EngineMode {
-  const value = process.env.AEGIS_ENGINE;
+  const value = process.env.KUEBIKO_ENGINE ?? process.env.AEGIS_ENGINE;
   return value === "ai" || value === "gemini" || value === "local" ? value : "auto";
 }
 
@@ -52,13 +52,13 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
   } else if (resolution.provider && resolution.settings) {
     healthy = false;
     ui.fail(resolution.error ?? "The selected provider has no usable model.");
-    ui.muted("Set a deployment/model name, then run `aegis doctor` again.");
+    ui.muted("Set a deployment/model name, then run `kuebiko doctor` again.");
   } else if (resolution.error) {
     healthy = false;
     ui.fail(resolution.error);
-    ui.muted("Aegis will fall back to the local mutation engine.");
+    ui.muted("Kuebiko will fall back to the local mutation engine.");
   } else {
-    ui.warn("No AI provider configured — Aegis will use its local mutation engine.");
+    ui.warn("No AI provider configured — Kuebiko will use its local mutation engine.");
     ui.muted("Set GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or run Ollama locally.");
   }
 
@@ -90,7 +90,7 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
   }
 
   if (existsSync(cwd)) {
-    const probeDir = join(cwd, ".aegis");
+    const probeDir = join(cwd, ".kuebiko");
     const probe = join(probeDir, ".write-probe");
     try {
       mkdirSync(probeDir, { recursive: true });
@@ -99,7 +99,7 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
       ui.success("Write access to the project");
     } catch {
       healthy = false;
-      ui.fail("Aegis cannot write inside the project directory.");
+      ui.fail("Kuebiko cannot write inside the project directory.");
     }
   }
 
@@ -111,9 +111,9 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
 
   ui.blank();
   if (healthy) {
-    ui.success('Aegis is ready. Try: aegis run "npm test"');
+    ui.success('Kuebiko is ready. Try: kuebiko run "npm test"');
   } else {
-    ui.fail("Fix the items above before running Aegis.");
+    ui.fail("Fix the items above before running Kuebiko.");
   }
   ui.blank();
 

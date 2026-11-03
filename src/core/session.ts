@@ -37,13 +37,13 @@ function engineLabel(
 ): string {
   if (engine === "ai") {
     if (verbose && provider) {
-      return `Aegis AI Engine [${providerLabel(provider)} · ${models.join(" → ")}]`;
+      return `Kuebiko AI Engine [${providerLabel(provider)} · ${models.join(" → ")}]`;
     }
     return models.length > 1
-      ? "Aegis AI Engine (Multi-Tier Neural Ladder)"
-      : "Aegis AI Engine";
+      ? "Kuebiko AI Engine (Multi-Tier Neural Ladder)"
+      : "Kuebiko AI Engine";
   }
-  return "Aegis Local Engine (Deterministic Mutation)";
+  return "Kuebiko Local Engine (Deterministic Mutation)";
 }
 
 function readTextFileSync(root: string, relPath: string): string {
@@ -102,11 +102,11 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   if (!canUseAi && !options.offline && options.engine !== "local") {
     ui.blank();
     if (resolution.error) {
-      ui.warn(`${resolution.error} Using Aegis built-in local repair engine.`);
+      ui.warn(`${resolution.error} Using Kuebiko built-in local repair engine.`);
     } else {
-      ui.warn("No AI provider configured — using Aegis built-in local repair engine.");
+      ui.warn("No AI provider configured — using Kuebiko built-in local repair engine.");
     }
-    ui.muted("Set a provider key and run `aegis doctor` to enable AI neural repairs.");
+    ui.muted("Set a provider key and run `kuebiko doctor` to enable AI neural repairs.");
   }
 
   ui.blank();
@@ -137,7 +137,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     let engine: ActiveEngine = requestedEngine;
     if (engine === "ai" && (!provider || !providerSettings || modelLadder.length === 0)) {
       engine = "local";
-      ui.warn("AI engine currently unavailable. Seamlessly deploying Aegis local mutation engine 🧮");
+      ui.warn("AI engine currently unavailable. Seamlessly deploying Kuebiko local mutation engine 🧮");
     }
 
     // Step 2: Autonomous Healing
@@ -146,7 +146,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       2,
       3,
       "Autonomous Healing",
-      engine === "ai" ? "Synthesizing fix via Aegis Neural Ladder" : "Running deterministic mutation search",
+      engine === "ai" ? "Synthesizing fix via Kuebiko Neural Ladder" : "Running deterministic mutation search",
     );
     let proposal: RepairProposal | null = null;
 
@@ -163,7 +163,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
         const tierName = modelLadder.length > 1 ? `Tier ${modelIndex + 1}` : "Primary Tier";
         const taskDescription = options.verbose
           ? `Synthesizing fix with ${label} · ${model}`
-          : `Synthesizing fix via Aegis Neural Engine (${tierName})`;
+          : `Synthesizing fix via Kuebiko Neural Engine (${tierName})`;
 
         const aiTask = ui.task(taskDescription);
         try {
@@ -180,7 +180,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
           aiTask.succeed(
             options.verbose
               ? `${label} (${model}) proposed ${candidate.patches.length} ${plural(candidate.patches.length, "patch", "patches")}`
-              : `Aegis Neural Engine (${tierName}) synthesized ${candidate.patches.length} verified ${plural(candidate.patches.length, "patch", "patches")}!`,
+              : `Kuebiko Neural Engine (${tierName}) synthesized ${candidate.patches.length} verified ${plural(candidate.patches.length, "patch", "patches")}!`,
           );
           break;
         } catch (error) {
@@ -202,7 +202,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       }
 
       if (proposal === null) {
-        ui.warn("AI ladder exhausted. Falling back to Aegis local deterministic engine 🧮");
+        ui.warn("AI ladder exhausted. Falling back to Kuebiko local deterministic engine 🧮");
         engine = "local";
       }
     }
@@ -231,7 +231,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
 
       if (proposal !== null) {
         localTask.succeed(
-          `Aegis local engine verified a deterministic fix! · ${proposal.summary}`,
+          `Kuebiko local engine verified a deterministic fix! · ${proposal.summary}`,
         );
       } else {
         localTask.fail("No single-edit candidate turned the command green.");
@@ -287,8 +287,8 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       applyTask.fail(error instanceof Error ? error.message : String(error));
       message =
         error instanceof PatchValidationError
-          ? `Aegis rejected an unsafe patch: ${error.message}`
-          : "Aegis failed while writing the patch. The project was left unchanged.";
+          ? `Kuebiko rejected an unsafe patch: ${error.message}`
+          : "Kuebiko failed while writing the patch. The project was left unchanged.";
       ui.warn(message);
       break;
     }

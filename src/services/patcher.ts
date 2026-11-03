@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import type { AppliedPatch, FilePatch, PatchStat } from "../core/types.js";
 import { atomicWriteFile, isPathInside, readTextFile, removeFile } from "../util/fs.js";
@@ -8,7 +9,7 @@ const WRITABLE_EXTENSIONS = new Set([
   ".json", ".yaml", ".yml", ".toml", ".css", ".scss", ".html", ".sql", ".sh", ".ps1", ".env",
 ]);
 
-const BLOCKED_SEGMENTS = new Set([".git", "node_modules", "dist", "build", ".aegis", "coverage"]);
+const BLOCKED_SEGMENTS = new Set([".git", "node_modules", "dist", "build", ".kuebiko", ".aegis", "coverage"]);
 
 const BLOCKED_FILES = new Set([
   ".env",
@@ -128,7 +129,8 @@ export class Patcher {
     try {
       for (const entry of prepared) {
         if (backup && entry.original !== null) {
-          const backupPath = join(this.root, ".aegis", "backups", this.sessionId, entry.relPath);
+          const dirName = existsSync(join(this.root, ".aegis")) && !existsSync(join(this.root, ".kuebiko")) ? ".aegis" : ".kuebiko";
+          const backupPath = join(this.root, dirName, "backups", this.sessionId, entry.relPath);
           await atomicWriteFile(backupPath, entry.original);
           entry.backupPath = backupPath;
         }

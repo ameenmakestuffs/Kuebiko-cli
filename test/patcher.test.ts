@@ -19,7 +19,10 @@ test("patcher applies, backs up, and restores a patch", async () => {
 
     assert.equal(readFileSync(file, "utf8"), "export const sum = (a, b) => a + b;\n");
     assert.equal(applied.length, 1);
-    assert.ok(existsSync(join(root, ".aegis", "backups", "session-1", "src", "math.ts")));
+    assert.ok(
+      existsSync(join(root, ".kuebiko", "backups", "session-1", "src", "math.ts")) ||
+      existsSync(join(root, ".aegis", "backups", "session-1", "src", "math.ts")),
+    );
 
     await patcher.restore(applied);
     assert.equal(readFileSync(file, "utf8"), "export const sum = (a, b) => a - b;\n");

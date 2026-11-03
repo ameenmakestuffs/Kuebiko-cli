@@ -257,7 +257,7 @@ export class Ui {
       "Build turned green without breaking a sweat 💪",
     ];
     const tagline = humorTaglines[Math.floor(Math.random() * humorTaglines.length)];
-    this.box("BUILD GREEN  ·  AEGIS SELF-HEALED", `${summary} · ${tagline}`, theme.successBold);
+    this.box("BUILD GREEN  ·  KUEBIKO SELF-HEALED", `${summary} · ${tagline}`, theme.successBold);
     for (const line of details) write(`  ${theme.text(line)}`);
     if (reportPath) write(`  ${theme.muted("report")}  ${theme.muted(reportPath)}`);
     write();

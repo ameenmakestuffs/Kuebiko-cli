@@ -18,6 +18,7 @@ function readEnvFile(file: string): Record<string, string> {
 
 export function loadEnvironment(projectCwd: string): EnvLoadResult {
   const candidates = [
+    join(homedir(), ".kuebiko", ".env"),
     join(homedir(), ".aegis", ".env"),
     join(process.cwd(), ".env"),
     join(resolve(projectCwd), ".env"),
