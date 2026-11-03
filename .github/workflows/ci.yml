@@ -24,7 +24,15 @@ jobs:
 
       - run: npm run build
 
-      - run: npm test
+      - name: Run unit tests
+        run: |
+          npm test 2>&1 | tee test.log || {
+            echo "### Unit Test Failure on Node ${{ matrix.node }}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat test.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
 
       - name: Prove the self-healing loop (offline)
         run: npm run demo:offline
