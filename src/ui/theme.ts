@@ -15,6 +15,16 @@ export const theme = {
   successBold: chalk.hex("#34D399").bold,
   dangerBold: chalk.hex("#F87171").bold,
   accentBold: chalk.hex("#22D3EE").bold,
+
+  // Rich badges & pills for modern developer UI
+  badge: (text: string, fg = "#FFFFFF", bg = "#6366F1"): string =>
+    chalk.bgHex(bg).hex(fg).bold(` ${text} `),
+  pill: (text: string, fg = "#38BDF8", bg = "#0F172A"): string =>
+    chalk.bgHex(bg).hex(fg).bold(` ${text} `),
+  pillGreen: (text: string): string => chalk.bgHex("#064E3B").hex("#34D399").bold(` ${text} `),
+  pillRed: (text: string): string => chalk.bgHex("#7F1D1D").hex("#FCA5A5").bold(` ${text} `),
+  pillYellow: (text: string): string => chalk.bgHex("#78350F").hex("#FDE68A").bold(` ${text} `),
+  filePath: (text: string): string => chalk.hex("#38BDF8").underline(text),
 };
 
 export const LOGO = [

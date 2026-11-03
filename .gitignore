@@ -33,3 +33,4 @@ crash-*.json
 .DS_Store
 Thumbs.db
 *.tmp
+playground/

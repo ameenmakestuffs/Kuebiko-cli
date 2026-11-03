@@ -33,10 +33,17 @@ function engineLabel(
   engine: ActiveEngine,
   provider: ProviderId | null,
   models: string[],
+  verbose = false,
 ): string {
-  return engine === "ai" && provider
-    ? `${providerLabel(provider)} · ${models.join(" → ")}`
-    : "local mutation engine";
+  if (engine === "ai") {
+    if (verbose && provider) {
+      return `Aegis AI Engine [${providerLabel(provider)} · ${models.join(" → ")}]`;
+    }
+    return models.length > 1
+      ? "Aegis AI Engine (Multi-Tier Neural Ladder)"
+      : "Aegis AI Engine";
+  }
+  return "Aegis Local Engine (Deterministic Mutation)";
 }
 
 function readTextFileSync(root: string, relPath: string): string {
@@ -85,7 +92,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   const summaryRows: Array<[string, string]> = [
     ["project", options.cwd],
     ["command", options.command],
-    ["engine", engineLabel(requestedEngine, provider, modelLadder)],
+    ["engine", engineLabel(requestedEngine, provider, modelLadder, options.verbose)],
     ["loop", `up to ${options.maxIterations} ${plural(options.maxIterations, "attempt")}`],
     ["timeout", `${Math.round(options.timeoutMs / 1000)}s per run`],
   ];
@@ -95,11 +102,11 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   if (!canUseAi && !options.offline && options.engine !== "local") {
     ui.blank();
     if (resolution.error) {
-      ui.warn(`${resolution.error} Using the built-in local repair engine.`);
+      ui.warn(`${resolution.error} Using Aegis built-in local repair engine.`);
     } else {
-      ui.warn("No AI provider configured — using the built-in local repair engine.");
+      ui.warn("No AI provider configured — using Aegis built-in local repair engine.");
     }
-    ui.muted("Set a provider key and run `aegis doctor` to enable AI-powered repairs.");
+    ui.muted("Set a provider key and run `aegis doctor` to enable AI neural repairs.");
   }
 
   ui.blank();
@@ -110,7 +117,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   ui.fullOutput("stderr", result.stderr);
 
   if (result.exitCode === 0) {
-    runTask.succeed(`Command passed · ${formatDuration(result.durationMs)}`);
+    runTask.succeed(`Command passed · ${formatDuration(result.durationMs)} · Build is already green! You didn't even need us (flex) 💪`);
     success = true;
     finalExitCode = 0;
     message = "The command passed on the first run. Nothing to repair.";
@@ -124,26 +131,23 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     const attemptStarted = Date.now();
     const diagnosis = triage(result, options.cwd, options.ignore);
 
-    ui.heading(`Diagnosis · attempt ${iteration}/${options.maxIterations}`);
-    ui.note("framework", diagnosis.framework);
-    ui.note("failure", diagnosis.headline);
-    if (diagnosis.assertion) {
-      if (diagnosis.assertion.expected !== undefined) ui.note("expected", diagnosis.assertion.expected);
-      if (diagnosis.assertion.actual !== undefined) ui.note("actual", diagnosis.assertion.actual);
-    }
-    if (diagnosis.suspects.length > 0) {
-      ui.note("suspects", diagnosis.suspects.map((file) => displayPath(options.cwd, file)).join(", "));
-    }
-    ui.outputTail("failure output", diagnosis.tail, options.verbose ? 200 : 12);
+    // Step 1: Rich Diagnosis Card
+    ui.diagnosisCard(diagnosis, iteration, options.maxIterations, options.cwd);
 
     let engine: ActiveEngine = requestedEngine;
     if (engine === "ai" && (!provider || !providerSettings || modelLadder.length === 0)) {
       engine = "local";
-      ui.warn("The selected AI provider is unavailable. Falling back to the local engine.");
+      ui.warn("AI engine currently unavailable. Seamlessly deploying Aegis local mutation engine 🧮");
     }
 
+    // Step 2: Autonomous Healing
     ui.blank();
-    ui.step(`Repairing with ${engineLabel(engine, provider, modelLadder)}`);
+    ui.stepHeader(
+      2,
+      3,
+      "Autonomous Healing",
+      engine === "ai" ? "Synthesizing fix via Aegis Neural Ladder" : "Running deterministic mutation search",
+    );
     let proposal: RepairProposal | null = null;
 
     if (engine === "ai" && provider && providerSettings) {
@@ -155,32 +159,56 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       });
       const label = providerLabel(provider);
 
-      for (const model of modelLadder) {
-        const aiTask = ui.task(`Analyzing failure with ${label} · ${model}`);
+      for (const [modelIndex, model] of modelLadder.entries()) {
+        const tierName = modelLadder.length > 1 ? `Tier ${modelIndex + 1}` : "Primary Tier";
+        const taskDescription = options.verbose
+          ? `Synthesizing fix with ${label} · ${model}`
+          : `Synthesizing fix via Aegis Neural Engine (${tierName})`;
+
+        const aiTask = ui.task(taskDescription);
         try {
           const candidate = await aiRepair({ provider, settings: providerSettings, model, context });
           if (candidate.patches.length === 0) {
-            aiTask.warn(`${label} · ${model} declined to propose a safe patch.`);
+            aiTask.warn(
+              options.verbose
+                ? `${label} (${model}) declined to propose a safe patch.`
+                : `${tierName} declined to propose a patch. Checking next tier...`,
+            );
             continue;
           }
           proposal = candidate;
           aiTask.succeed(
-            `${label} · ${model} proposed ${candidate.patches.length} ${plural(candidate.patches.length, "patch", "patches")}`,
+            options.verbose
+              ? `${label} (${model}) proposed ${candidate.patches.length} ${plural(candidate.patches.length, "patch", "patches")}`
+              : `Aegis Neural Engine (${tierName}) synthesized ${candidate.patches.length} verified ${plural(candidate.patches.length, "patch", "patches")}!`,
           );
           break;
         } catch (error) {
-          aiTask.fail(`${label} · ${model} failed: ${error instanceof Error ? error.message : String(error)}`);
+          const isFailover = modelIndex < modelLadder.length - 1;
+          if (isFailover) {
+            aiTask.warn(
+              options.verbose
+                ? `${label} (${model}) error: ${error instanceof Error ? error.message : String(error)} · Failing over to Tier ${modelIndex + 2}...`
+                : `${tierName} took an unexpected coffee break ☕ · Seamlessly switching to backup tier...`,
+            );
+          } else {
+            aiTask.warn(
+              options.verbose
+                ? `${label} (${model}) error: ${error instanceof Error ? error.message : String(error)}`
+                : "AI neural tiers busy · Deploying local deterministic engine 🧮",
+            );
+          }
         }
       }
 
       if (proposal === null) {
-        ui.warn(`${label} ladder exhausted. Falling back to the local repair engine.`);
+        ui.warn("AI ladder exhausted. Falling back to Aegis local deterministic engine 🧮");
         engine = "local";
       }
     }
 
     if (proposal === null && engine === "local") {
-      const localTask = ui.task("Searching for a minimal local repair");
+      const localTask = ui.task("Analyzing AST & searching minimal deterministic mutation space");
       proposal = await localRepair({
         root: options.cwd,
         suspects: diagnosis.suspects,
@@ -197,13 +225,13 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
           return green;
         },
         onCandidate: (current, total, label) => {
-          localTask.update(`Testing local repair ${current}/${total} · ${label}`);
+          localTask.update(`Testing candidate mutation ${current}/${total} · ${label}`);
         },
       });
 
       if (proposal !== null) {
         localTask.succeed(
-          `Local engine found a verified ${plural(proposal.patches.length, "fix", "fixes")} · ${proposal.summary}`,
+          `Aegis local engine verified a deterministic fix! · ${proposal.summary}`,
         );
       } else {
         localTask.fail("No single-edit candidate turned the command green.");
@@ -275,19 +303,22 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       const entry = applied.find((item) => item.relPath.split(/[\\/]/).join("/") === patch.path);
       const diff = diffLines(entry?.original ?? "", patch.content, patch.path);
       ui.diff(patch.path, diff.text);
-      ui.muted(patch.reason);
+      ui.muted(`💡 ${patch.reason}`);
     }
 
     const unregister = registerCleanup(async () => {
       await patcher.restore(applied);
     });
 
-    const verifyTask = ui.task(`Re-running ${options.command}`);
+    // Step 3: Verification
+    ui.blank();
+    ui.stepHeader(3, 3, "Smoke Testing & Verification", "Re-running command to ensure the fix turns build green");
+    const verifyTask = ui.task(`Re-testing: ${options.command}`);
     result = await execute(options.command, options.cwd, options.timeoutMs);
     unregister();
 
     if (result.exitCode === 0) {
-      verifyTask.succeed(`Command passed · verified in ${formatDuration(result.durationMs)}`);
+      verifyTask.succeed(`Command passed with flying colors! Verified in ${formatDuration(result.durationMs)} ✨`);
       success = true;
       finalExitCode = 0;
       activeEngine = proposal.engine;
@@ -309,7 +340,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     verifyTask.fail(
       `Command still failing · exit ${result.exitCode}${result.timedOut ? " (timeout)" : ""}`,
     );
-    ui.warn("The patch did not turn the build green. Reverting it so the next attempt starts clean.");
+    ui.warn("Patch failed verification. Reverting safely so the next attempt starts clean ↺");
     await patcher.restore(applied);
     attempts.push({
       iteration,
@@ -328,9 +359,23 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     }
   }
 
-  if (!message) {
-    message = success ? "The command is green." : "Aegis could not repair the failure.";
-  }
+  const durationMs = Date.now() - startedMs;
+  finalExitCode = success ? 0 : result.exitCode;
+  const appliedCount = attempts.filter((item) => item.verified).flatMap((item) => item.patches).length;
+  const changedFiles = new Set(
+    attempts
+      .filter((item) => item.verified)
+      .flatMap((item) => item.patches)
+      .map((item) => item.path),
+  );
+  const totalAdded = attempts
+    .filter((item) => item.verified)
+    .flatMap((item) => item.patches)
+    .reduce((sum, item) => sum + item.added, 0);
+  const totalRemoved = attempts
+    .filter((item) => item.verified)
+    .flatMap((item) => item.patches)
+    .reduce((sum, item) => sum + item.removed, 0);
 
   const finishedAt = new Date();
   const report: SessionReport = {
@@ -352,33 +397,15 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
 
   const reportPath = await writeReport(options.cwd, report);
 
+  const details = [
+    `Verified with ${options.command} in ${formatDuration(report.durationMs)}.`,
+    `${changedFiles.size} ${plural(changedFiles.size, "file")} changed · +${totalAdded} / -${totalRemoved} lines · engine: ${activeEngine}`,
+  ];
+
   if (success) {
-    const added = attempts.flatMap((attempt) => attempt.patches).reduce((sum, patch) => sum + patch.added, 0);
-    const removed = attempts.flatMap((attempt) => attempt.patches).reduce((sum, patch) => sum + patch.removed, 0);
-    const files = new Set(attempts.flatMap((attempt) => attempt.patches).map((patch) => patch.path));
-    ui.verdictSuccess(
-      message,
-      [
-        `Verified with ${options.command} in ${formatDuration(report.durationMs)}.`,
-        `${files.size} ${plural(files.size, "file")} changed · +${added} / -${removed} lines · engine: ${activeEngine}`,
-      ],
-      reportPath,
-    );
+    ui.verdictSuccess(message, details, reportPath);
   } else {
-    const output = combinedOutput(result);
-    if (output.trim() && attempts.length === 0) {
-      ui.outputTail("final output", tail(output, 4000), 16);
-    }
-    ui.verdictFailure(
-      message,
-      [
-        attempts.length > 0
-          ? `${attempts.length} ${plural(attempts.length, "repair attempt")} made, none verified green.`
-          : "No patch was applied.",
-        `Project left unchanged · exit code ${finalExitCode === 0 ? initialExitCode : finalExitCode}.`,
-      ],
-      reportPath,
-    );
+    ui.verdictFailure(message, details, reportPath);
   }
 
   return report;

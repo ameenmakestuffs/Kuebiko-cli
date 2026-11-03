@@ -1,6 +1,8 @@
+import { relative } from "node:path";
 import ora, { type Ora } from "ora";
 import { colorLogo, theme } from "./theme.js";
 import { formatDuration, indent, stripAnsi } from "../util/text.js";
+import type { TriageResult } from "../core/types.js";
 
 export interface TaskHandle {
   update(text: string): void;
@@ -55,6 +57,13 @@ export class Ui {
   step(message: string): void {
     if (this.json) return;
     write(`  ${theme.accent("›")} ${message}`);
+  }
+
+  stepHeader(stepNumber: number, totalSteps: number, title: string, subtitle?: string): void {
+    if (this.json) return;
+    write();
+    const badge = theme.badge(`STEP ${stepNumber}/${totalSteps}`, "#FFFFFF", "#6366F1");
+    write(`  ${badge}  ${theme.brandBold(title)}${subtitle ? ` ${theme.muted(`· ${subtitle}`)}` : ""}`);
   }
 
   info(message: string): void {
@@ -149,6 +158,56 @@ export class Ui {
     };
   }
 
+  diagnosisCard(
+    diagnosis: TriageResult,
+    iteration: number,
+    maxIterations: number,
+    cwd: string,
+  ): void {
+    if (this.json) return;
+    this.stepHeader(1, 3, "Triage & Root Cause Diagnosis", `Attempt ${iteration} of ${maxIterations}`);
+    write();
+
+    // Runner pill + headline
+    const frameworkLabel = diagnosis.framework || "generic test runner";
+    const pill = theme.pill(frameworkLabel, "#38BDF8", "#0F172A");
+    write(`  ${pill}  ${theme.dangerBold(diagnosis.headline || "Test execution failed")}`);
+
+    // Clean Assertion Breakdown
+    if (diagnosis.assertion) {
+      write();
+      write(`  ${theme.muted("┌─")} ${theme.bold("Assertion Discrepancy")}`);
+      if (diagnosis.assertion.expected !== undefined) {
+        write(
+          `  ${theme.muted("│")}   ${theme.muted("Expected: ")} ${theme.successBold(diagnosis.assertion.expected)}  ${theme.success("✔ (what test expected)")}`,
+        );
+      }
+      if (diagnosis.assertion.actual !== undefined) {
+        write(
+          `  ${theme.muted("│")}   ${theme.muted("Received: ")} ${theme.dangerBold(diagnosis.assertion.actual)}  ${theme.danger("✖ (what code returned)")}`,
+        );
+      }
+      write(`  ${theme.muted("└─────────────────────────────────────────────────────────────")}`);
+    }
+
+    // Suspects list with visual badges
+    if (diagnosis.suspects.length > 0) {
+      write();
+      write(`  ${theme.accentBold("🎯 Suspect Files on the Scene:")}`);
+      diagnosis.suspects.slice(0, 4).forEach((file, index) => {
+        const rel = relative(cwd, file).split(/[\\/]/).join("/") || file;
+        const tag = index === 0 ? theme.pillYellow("Most Likely") : theme.muted("Related");
+        write(`     ${theme.accent("•")} ${theme.filePath(rel)}  ${tag}`);
+      });
+    }
+
+    // Trace output box
+    if (diagnosis.tail) {
+      write();
+      this.outputTail("Failure Output Snippet", diagnosis.tail, this.verbose ? 200 : 10);
+    }
+  }
+
   outputTail(label: string, output: string, maxLines = 14): void {
     if (this.json) return;
     const clean = stripAnsi(output).replace(/\r/g, "").trimEnd();
@@ -191,7 +250,14 @@ export class Ui {
   verdictSuccess(summary: string, details: string[], reportPath: string | null): void {
     if (this.json) return;
     write();
-    this.box("BUILD GREEN  ·  AEGIS SELF-HEALED", summary, theme.successBold);
+    const humorTaglines = [
+      "Crisis averted. Go grab a coffee, we got this ☕✨",
+      "Tests are green. Back to shipping features! 🚀",
+      "Self-healed with precision. Another bug bites the dust 🛡️",
+      "Build turned green without breaking a sweat 💪",
+    ];
+    const tagline = humorTaglines[Math.floor(Math.random() * humorTaglines.length)];
+    this.box("BUILD GREEN  ·  AEGIS SELF-HEALED", `${summary} · ${tagline}`, theme.successBold);
     for (const line of details) write(`  ${theme.text(line)}`);
     if (reportPath) write(`  ${theme.muted("report")}  ${theme.muted(reportPath)}`);
     write();
@@ -200,14 +266,14 @@ export class Ui {
   verdictFailure(summary: string, details: string[], reportPath: string | null): void {
     if (this.json) return;
     write();
-    this.box("BUILD RED  ·  HUMAN ASSISTANCE NEEDED", summary, theme.dangerBold);
+    this.box("BUILD RED  ·  HUMAN ASSISTANCE NEEDED", `${summary} · Even superheroes need a hand sometimes 🦸`, theme.dangerBold);
     for (const line of details) write(`  ${theme.text(line)}`);
     if (reportPath) write(`  ${theme.muted("report")}  ${theme.muted(reportPath)}`);
     write();
   }
 
   private box(title: string, subtitle: string, color: (input: string) => string): void {
-    const width = 64;
+    const width = 66;
     const titleLine = ` ${color(title)}`;
     const bottom = `  ${theme.muted(`╰${"─".repeat(width)}╯`)}`;
     write(`  ${theme.muted(`╭${"─".repeat(width)}╮`)}`);
