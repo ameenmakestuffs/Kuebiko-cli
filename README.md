@@ -17,14 +17,12 @@ Run a failing command once. Kuebiko triages the failure, patches the code throug
 ## Quick start
 
 ```bash
+# Run directly in any project:
+npx kuebiko-cli run "npm test"
+
+# Or install globally:
 npm install -g kuebiko-cli
 kuebiko run "npm test"
-```
-
-No install? Try the deterministic sandbox:
-
-```bash
-npx kuebiko-cli demo
 ```
 
 Add a model provider (Gemini is the default):
