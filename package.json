@@ -1,0 +1,62 @@
+{
+  "name": "aegis-cli",
+  "version": "0.1.0",
+  "description": "The autonomous on-call engineer for your terminal. Runs your tests, diagnoses failures, patches code, and re-runs until green.",
+  "type": "module",
+  "bin": {
+    "aegis": "dist/cli/index.js"
+  },
+  "main": "dist/cli/index.js",
+  "files": [
+    "dist",
+    "demo-sandbox",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "demo": "node dist/cli/index.js demo",
+    "demo:offline": "node dist/cli/index.js demo --offline",
+    "demo:reset": "node dist/cli/index.js demo --seed-only",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "self-healing",
+    "on-call",
+    "developer-tools",
+    "gemini",
+    "autonomous",
+    "testing"
+  ],
+  "author": "Ameen Ansari",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ameen-ansarii/Aegis-CLI.git"
+  },
+  "homepage": "https://github.com/ameen-ansarii/Aegis-CLI#readme",
+  "bugs": {
+    "url": "https://github.com/ameen-ansarii/Aegis-CLI/issues"
+  },
+  "dependencies": {
+    "@google/genai": "^1.29.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

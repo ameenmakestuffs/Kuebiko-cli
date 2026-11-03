@@ -1,0 +1,10 @@
+{
+  "name": "aegis-demo-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A tiny storefront module with a deliberately seeded bug for the Aegis demo.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

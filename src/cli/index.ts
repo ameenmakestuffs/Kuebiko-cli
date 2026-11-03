@@ -1,0 +1,191 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+import { existsSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { loadConfig, resolveProjectCwd } from "../core/config.js";
+import { loadEnvironment } from "../core/env.js";
+import { PRIMARY_MODEL } from "../core/models.js";
+import { runSession } from "../core/session.js";
+import type { EngineMode, RunOptions, SessionReport } from "../core/types.js";
+import { TAGLINE, VERSION } from "../core/version.js";
+import { runCleanups } from "../services/patcher.js";
+import { Ui } from "../ui/ui.js";
+import { runDoctor } from "./doctor.js";
+import { seedDemo } from "./demo.js";
+
+interface RunCliOptions {
+  cwd?: string;
+  maxIterations?: string;
+  offline?: boolean;
+  engine?: string;
+  model?: string;
+  timeout?: string;
+  maxCandidates?: string;
+  dryRun?: boolean;
+  json?: boolean;
+  verbose?: boolean;
+}
+
+function parseInteger(value: string | undefined, label: string, min: number, max: number): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || Math.round(parsed) !== parsed || parsed < min || parsed > max) {
+    throw new Error(`${label} must be an integer between ${min} and ${max}.`);
+  }
+  return parsed;
+}
+
+function resolveEngine(value: string | undefined): EngineMode | undefined {
+  if (value === undefined) return undefined;
+  if (value === "auto" || value === "gemini" || value === "local") return value;
+  throw new Error('--engine must be one of: auto, gemini, local.');
+}
+
+async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<number> {
+  const command = commandParts.join(" ").trim();
+  if (!command) throw new Error("Provide a command to run, e.g. aegis run \"npm test\"");
+
+  const cwd = resolveProjectCwd(cli.cwd);
+  if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
+    throw new Error(`Project directory does not exist: ${cwd}`);
+  }
+
+  loadEnvironment(cwd);
+  const config = loadConfig(cwd);
+
+  const maxIterations = parseInteger(cli.maxIterations, "--max-iterations", 1, 10) ?? config.maxIterations;
+  const timeoutSeconds = parseInteger(cli.timeout, "--timeout", 10, 3600);
+  const maxCandidates = parseInteger(cli.maxCandidates, "--max-candidates", 4, 200) ?? config.maxCandidates;
+  const engine = resolveEngine(cli.engine) ?? config.engine;
+
+  const options: RunOptions = {
+    command,
+    cwd,
+    maxIterations,
+    timeoutMs: timeoutSeconds === undefined ? config.timeoutMs : timeoutSeconds * 1000,
+    offline: Boolean(cli.offline),
+    dryRun: Boolean(cli.dryRun),
+    verbose: Boolean(cli.verbose),
+    json: Boolean(cli.json),
+    model: cli.model?.trim() || config.model,
+    engine,
+    maxCandidates,
+    ignore: config.ignore,
+  };
+
+  const ui = new Ui({ json: options.json, verbose: options.verbose });
+  let report: SessionReport;
+  try {
+    report = await runSession(options, ui);
+  } catch (error) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }, null, 2)}\n`,
+      );
+    } else {
+      ui.fail(error instanceof Error ? error.message : String(error));
+    }
+    return 1;
+  }
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  }
+
+  if (report.success) return 0;
+  return report.finalExitCode > 0 ? report.finalExitCode : 1;
+}
+
+const program = new Command();
+
+program
+  .name("aegis")
+  .description("Aegis — the autonomous on-call engineer for your terminal.")
+  .version(VERSION, "-V, --version", "print the Aegis version")
+  .helpOption("-h, --help", "show help");
+
+program
+  .command("run")
+  .description("Run a command, diagnose any failure, patch the code, and re-run until green.")
+  .argument("<command...>", 'command to run, e.g. "npm test"')
+  .option("-C, --cwd <dir>", "project directory to operate on (default: current directory)")
+  .option("-i, --max-iterations <n>", "maximum self-healing attempts (default: 3)")
+  .option("--offline", "skip AI and use only the local mutation engine")
+  .option("--engine <mode>", "repair engine: auto, gemini, or local")
+  .option("--model <model>", `Gemini model to use (default: ${PRIMARY_MODEL})`)
+  .option("--timeout <seconds>", "timeout for each command run (default: 300)")
+  .option("--max-candidates <n>", "maximum local repair candidates to test (default: 48)")
+  .option("--dry-run", "diagnose and propose patches without writing files")
+  .option("--json", "emit a machine-readable report and suppress terminal UI")
+  .option("-v, --verbose", "show full command output and stack traces")
+  .action(async (commandParts: string[], options: RunCliOptions) => {
+    try {
+      process.exitCode = await executeRun(commandParts, options);
+    } catch (error) {
+      const ui = new Ui({ json: Boolean(options.json), verbose: false });
+      ui.fail(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("doctor")
+  .description("Check Node, project access, and Gemini configuration.")
+  .option("--live", "make a real Gemini API call to verify the key and model")
+  .action(async (options: { live?: boolean }) => {
+    loadEnvironment(process.cwd());
+    process.exitCode = await runDoctor(process.cwd(), { live: Boolean(options.live) });
+  });
+
+program
+  .command("demo")
+  .description("Reseed the bundled demo bug, then let Aegis diagnose and heal it.")
+  .option("--offline", "force the local repair engine")
+  .option("--dry-run", "show the proposed fix without writing it")
+  .option("--seed-only", "restore the seeded demo bug and exit")
+  .action(async (options: { offline?: boolean; dryRun?: boolean; seedOnly?: boolean }) => {
+    const sandbox = fileURLToPath(new URL("../../demo-sandbox", import.meta.url));
+    if (!existsSync(sandbox)) {
+      process.stderr.write(`Demo sandbox not found at ${sandbox}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const seeded = seedDemo(sandbox);
+    if (!seeded.ok) {
+      process.stderr.write(`${seeded.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    process.stdout.write(`  ↺ ${seeded.message}\n`);
+
+    if (options.seedOnly) {
+      process.exitCode = 0;
+      return;
+    }
+
+    const parts = ["npm test"];
+    const args: RunCliOptions = { cwd: sandbox };
+    if (options.offline) args.offline = true;
+    if (options.dryRun) args.dryRun = true;
+    process.exitCode = await executeRun(parts, args);
+  });
+
+let shuttingDown = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    if (shuttingDown) {
+      process.exit(130);
+      return;
+    }
+    shuttingDown = true;
+    const ui = new Ui({ json: false, verbose: false });
+    ui.warn("Interrupted — restoring any partially applied patch.");
+    void runCleanups().finally(() => {
+      process.exit(130);
+    });
+  });
+}
+
+loadEnvironment(process.cwd());
+await program.parseAsync(process.argv);
