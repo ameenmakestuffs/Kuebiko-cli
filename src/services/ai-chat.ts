@@ -9,10 +9,12 @@ export interface AiChatInput {
   model: string;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens?: number;
 }
 
 export async function aiChat(input: AiChatInput): Promise<string> {
   const { provider, settings, model, systemPrompt, userPrompt } = input;
+  const tokenLimit = input.maxTokens ?? 800;
 
   switch (provider) {
     case "gemini": {
@@ -23,7 +25,7 @@ export async function aiChat(input: AiChatInput): Promise<string> {
         config: {
           systemInstruction: systemPrompt,
           temperature: 0.2,
-          maxOutputTokens: 4096,
+          maxOutputTokens: tokenLimit,
         },
       });
       return response.text?.trim() ?? "No response generated.";
@@ -43,7 +45,7 @@ export async function aiChat(input: AiChatInput): Promise<string> {
             { role: "user", content: userPrompt },
           ],
           temperature: 0.2,
-          max_tokens: 4096,
+          max_tokens: tokenLimit,
         }),
         label: "Groq",
         timeoutMs: 30_000,
@@ -65,7 +67,7 @@ export async function aiChat(input: AiChatInput): Promise<string> {
             { role: "user", content: userPrompt },
           ],
           temperature: 0.2,
-          max_tokens: 4096,
+          max_tokens: tokenLimit,
         }),
         label: "OpenAI",
         timeoutMs: 30_000,
@@ -85,7 +87,7 @@ export async function aiChat(input: AiChatInput): Promise<string> {
           model,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
-          max_tokens: 4096,
+          max_tokens: tokenLimit,
           temperature: 0.2,
         }),
         label: "Anthropic",
@@ -106,6 +108,9 @@ export async function aiChat(input: AiChatInput): Promise<string> {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          options: {
+            num_predict: tokenLimit,
+          },
           stream: false,
         }),
         label: "Ollama",

@@ -75,10 +75,16 @@ export async function runAsk(
       provider: resolution.provider,
       settings: resolution.settings,
       model: resolution.models[0] ?? "gemini-3.8-flash",
+      maxTokens: 400,
       systemPrompt:
-        "You are Kuebiko, an autonomous engineering assistant. Answer the user's question about their codebase clearly and concisely. " +
-        "Include file references and code snippets where relevant. Use clean formatting.",
-      userPrompt: `Here is the high-level project structure:\n${projectContext}\n\nUser Question: ${question}`,
+        "You are Kuebiko, an ultra-fast, minimal terminal assistant.\n" +
+        "CRITICAL RULES:\n" +
+        "1. Be extremely concise. Answer directly in 1 to 3 sentences or brief bullet points.\n" +
+        "2. ZERO FLUFF. NEVER write entire tutorials, long walkthroughs, or unsolicited project skeletons unless the user explicitly asks for full code or tutorial.\n" +
+        "3. For casual greetings, remarks, or statements, reply naturally with a short, witty 1-line response.\n" +
+        "4. Save tokens and terminal real estate at all costs.\n" +
+        (projectContext ? `\nCodebase Reference:\n${projectContext}` : ""),
+      userPrompt: question,
     });
 
     task.succeed("Answer ready!");

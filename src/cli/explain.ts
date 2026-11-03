@@ -58,6 +58,7 @@ export async function runExplain(errorText: string, options: { provider?: string
         provider: resolution.provider,
         settings: resolution.settings,
         model: resolution.models[0] ?? "gemini-3.8-flash",
+        maxTokens: 500,
         systemPrompt:
           "You are Kuebiko, an expert autonomous debugging engineer. Analyze the error provided by the user. " +
           "Explain in 2-3 concise paragraphs: 1) What caused the error in plain English, 2) The exact fix or code pattern, 3) How to prevent it. " +
