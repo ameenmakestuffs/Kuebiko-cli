@@ -1,4 +1,4 @@
-export type ProviderId = "gemini" | "openai" | "anthropic" | "azure" | "bedrock" | "ollama";
+export type ProviderId = "gemini" | "groq" | "openai" | "anthropic" | "azure" | "bedrock" | "ollama";
 
 export type EngineMode = "auto" | "ai" | "gemini" | "local";
 

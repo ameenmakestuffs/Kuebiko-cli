@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2026-11-03
 
 ### Added
+- **Interactive Onboarding Wizard (`kuebiko init` / `kuebiko setup`)**:
+  - Step-by-step interactive configuration of AI providers (Groq, Gemini, OpenAI, Anthropic, Ollama).
+  - Masked secret input preventing exposure of API keys on screen or in shell logs.
+  - Live connectivity verification before saving.
+  - Choice of global (`~/.kuebiko/.env`) or local (`.env`) storage with automated `.gitignore` protection check.
+  - 100% Client-Side BYOK (Bring Your Own Key) privacy guarantee.
+- **Groq Provider Integration**:
+  - Ultra-fast inference (~800 tok/s) supporting `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`, and `llama-3.3-70b-versatile`.
+  - JSON-mode structured outputs and automated token budgeting.
+- **Subcommands (`explain` & `ask`)**:
+  - `kuebiko explain [error]`: Instant translation of stack traces into plain English diagnostics, solutions, and prevention tips.
+  - `kuebiko ask [question]`: Context-aware codebase Q&A assistant using project structure and preferred LLM.
 - **Bring-Your-Own (BYO) Model Providers**:
   - **OpenAI**: Native `/v1/chat/completions` integration with JSON mode support.
   - **Anthropic**: Claude integration using the Messages API.

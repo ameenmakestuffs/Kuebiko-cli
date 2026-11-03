@@ -136,7 +136,10 @@ Benchmark reports are written to `.kuebiko/bench/latest.json`. Add your own suit
 
 | Command | Description |
 | --- | --- |
+| `kuebiko init` (or `setup`) | Interactive onboarding wizard to configure AI providers and keys with live verification |
 | `kuebiko run "<cmd>"` | Run the target command, repair on failure, and verify until green |
+| `kuebiko explain "<error>"` | Translate stack traces into plain English diagnoses and prevention patterns |
+| `kuebiko ask "<question>"` | Query codebase architecture and implementation details with your preferred LLM |
 | `kuebiko doctor` | Inspect Node version, project permissions, and AI credentials |
 | `kuebiko demo` | Reseed and run the bundled demo bug in `demo-sandbox/` |
 | `kuebiko bench` | Run polyglot benchmark fixtures and report pass rate and latency |
@@ -148,7 +151,7 @@ Benchmark reports are written to `.kuebiko/bench/latest.json`. Add your own suit
 | `-C, --cwd <dir>` | `.` | Working directory of the target project |
 | `-i, --max-iterations <n>` | `3` | Maximum repair attempts before giving up |
 | `--engine <mode>` | `auto` | `auto`, `ai`, `gemini`, or `local` |
-| `--provider <name>` | `auto` | `gemini`, `openai`, `anthropic`, `azure`, `bedrock`, or `ollama` |
+| `--provider <name>` | `auto` | `gemini`, `groq`, `openai`, `anthropic`, `azure`, `bedrock`, or `ollama` |
 | `--model <model>` | `gemini-3.8-flash` | Override the default primary model |
 | `--timeout <seconds>` | `300` | Timeout per command execution |
 | `--max-candidates <n>` | `48` | Mutation budget for the local repair tier |

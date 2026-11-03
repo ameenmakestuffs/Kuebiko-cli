@@ -15,6 +15,7 @@ import { runDoctor } from "./doctor.js";
 import { seedDemo } from "./demo.js";
 import { runExplain } from "./explain.js";
 import { runAsk } from "./ask.js";
+import { runInit } from "./init.js";
 
 interface RunCliOptions {
   cwd?: string;
@@ -49,7 +50,7 @@ function resolveProviderOption(value: string | undefined): ProviderId | undefine
   if (value === undefined || value.trim() === "" || value === "auto") return undefined;
   const normalized = value.trim().toLowerCase();
   if (!isProviderId(normalized)) {
-    throw new Error('--provider must be one of: gemini, openai, anthropic, azure, bedrock, ollama.');
+    throw new Error('--provider must be one of: gemini, groq, openai, anthropic, azure, bedrock, ollama.');
   }
   return normalized;
 }
@@ -158,6 +159,16 @@ program
       ...(options.provider ? { provider: options.provider } : {}),
       ...(options.model ? { model: options.model } : {}),
     });
+  });
+
+program
+  .command("init")
+  .alias("setup")
+  .description("Interactive onboarding wizard to configure your preferred AI provider and keys.")
+  .option("-C, --cwd <dir>", "project directory (default: current directory)")
+  .action(async (options: { cwd?: string }) => {
+    const cwd = resolveProjectCwd(options.cwd);
+    process.exitCode = await runInit(cwd);
   });
 
 program

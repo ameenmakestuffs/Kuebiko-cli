@@ -29,6 +29,28 @@ export async function aiChat(input: AiChatInput): Promise<string> {
       return response.text?.trim() ?? "No response generated.";
     }
 
+    case "groq": {
+      const response = await postJson<{ choices?: Array<{ message?: { content?: string } }> }>({
+        url: `${settings.baseUrl ?? "https://api.groq.com/openai/v1"}/chat/completions`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.apiKey ?? ""}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 4096,
+        }),
+        label: "Groq",
+        timeoutMs: 30_000,
+      });
+      return response.choices?.[0]?.message?.content?.trim() ?? "No response generated.";
+    }
+
     case "openai": {
       const response = await postJson<{ choices?: Array<{ message?: { content?: string } }> }>({
         url: `${settings.baseUrl ?? "https://api.openai.com/v1"}/chat/completions`,

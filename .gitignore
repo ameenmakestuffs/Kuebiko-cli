@@ -11,8 +11,9 @@ dist/
 *.tsbuildinfo
 *.tgz
 
-# Aegis runtime artifacts
+# Runtime artifacts
 .aegis/
+.kuebiko/
 
 # Test and coverage output
 coverage/

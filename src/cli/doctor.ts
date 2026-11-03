@@ -59,7 +59,7 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
     ui.muted("Kuebiko will fall back to the local mutation engine.");
   } else {
     ui.warn("No AI provider configured — Kuebiko will use its local mutation engine.");
-    ui.muted("Set GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or run Ollama locally.");
+    ui.muted("Set GROQ_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or run Ollama locally.");
   }
 
   if (options.live) {

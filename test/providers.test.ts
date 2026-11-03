@@ -9,12 +9,18 @@ import {
 } from "../src/core/models.ts";
 
 const ENV_KEYS = [
+  "KUEBIKO_PROVIDER",
+  "KUEBIKO_MODEL",
+  "KUEBIKO_ENGINE",
   "AEGIS_PROVIDER",
   "AEGIS_MODEL",
   "AEGIS_ENGINE",
   "GEMINI_API_KEY",
   "GOOGLE_API_KEY",
   "GEMINI_MODEL",
+  "GROQ_API_KEY",
+  "GROQ_BASE_URL",
+  "GROQ_MODEL",
   "OPENAI_API_KEY",
   "OPENAI_BASE_URL",
   "OPENAI_MODEL",
@@ -52,10 +58,33 @@ function withCleanEnv(run: () => void): void {
 
 test("provider ladders preserve a custom primary and fall back to provider defaults", () => {
   assert.deepEqual(buildProviderLadder("gemini", "custom"), ["custom", PRIMARY_MODEL, LITE_MODEL]);
+  assert.deepEqual(buildProviderLadder("groq", "custom"), [
+    "custom",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+    "llama-3.3-70b-versatile",
+  ]);
   assert.deepEqual(buildProviderLadder("openai", "custom"), ["custom", "gpt-4.1", "gpt-4.1-mini"]);
   assert.deepEqual(buildProviderLadder("azure"), []);
   assert.equal(isProviderId("ollama"), true);
+  assert.equal(isProviderId("groq"), true);
   assert.equal(isProviderId("unknown"), false);
+});
+
+test("auto detection resolves a configured Groq provider", () => {
+  withCleanEnv(() => {
+    process.env.GROQ_API_KEY = "gsk_test12345678901234567890";
+    const resolution = resolveProvider();
+    assert.equal(resolution.provider, "groq");
+    assert.deepEqual(resolution.models, [
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "llama-3.3-70b-versatile",
+    ]);
+    assert.equal(resolution.settings?.baseUrl, "https://api.groq.com/openai/v1");
+  });
 });
 
 test("auto detection resolves a configured OpenAI provider", () => {

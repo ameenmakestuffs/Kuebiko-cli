@@ -81,9 +81,9 @@ export async function chatVerify(config: ChatCompletionConfig): Promise<string> 
   return await requestChat(
     config,
     [
-      { role: "system", content: "Reply only with the requested JSON." },
-      { role: "user", content: 'Reply with exactly this JSON: {"status":"ok"}' },
+      { role: "system", content: "Reply only with valid JSON." },
+      { role: "user", content: 'Output a JSON object with key status and value ok: {"status":"ok"}' },
     ],
-    Math.min(config.maxTokens ?? 64, 64),
+    Math.max(config.maxTokens ?? 512, 512),
   );
 }

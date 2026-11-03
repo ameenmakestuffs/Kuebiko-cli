@@ -7,6 +7,7 @@ export const DEFAULT_MODEL_LADDER = [PRIMARY_MODEL, LITE_MODEL] as const;
 
 export const PROVIDER_IDS: ProviderId[] = [
   "gemini",
+  "groq",
   "openai",
   "anthropic",
   "azure",
@@ -16,6 +17,7 @@ export const PROVIDER_IDS: ProviderId[] = [
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
   gemini: "Gemini",
+  groq: "Groq",
   openai: "OpenAI",
   anthropic: "Anthropic",
   azure: "Azure OpenAI",
@@ -25,6 +27,7 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
 
 export const PROVIDER_DEFAULT_MODELS: Record<ProviderId, string[]> = {
   gemini: [PRIMARY_MODEL, LITE_MODEL],
+  groq: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b", "llama-3.3-70b-versatile"],
   openai: ["gpt-4.1", "gpt-4.1-mini"],
   anthropic: ["claude-sonnet-4-5", "claude-haiku-4-5"],
   azure: [],

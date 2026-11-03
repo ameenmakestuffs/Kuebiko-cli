@@ -31,6 +31,7 @@ export interface ResolveProviderInput {
 
 const MODEL_ENV: Record<ProviderId, string> = {
   gemini: "GEMINI_MODEL",
+  groq: "GROQ_MODEL",
   openai: "OPENAI_MODEL",
   anthropic: "ANTHROPIC_MODEL",
   azure: "AZURE_OPENAI_DEPLOYMENT",
@@ -58,6 +59,8 @@ export function providerEnvHint(provider: ProviderId): string {
   switch (provider) {
     case "gemini":
       return "GEMINI_API_KEY or GOOGLE_API_KEY";
+    case "groq":
+      return "GROQ_API_KEY (optional GROQ_BASE_URL, GROQ_MODEL)";
     case "openai":
       return "OPENAI_API_KEY (optional OPENAI_BASE_URL, OPENAI_MODEL)";
     case "anthropic":
@@ -83,6 +86,18 @@ function settingsFor(provider: ProviderId): { settings?: ProviderSettings; error
       const apiKey = firstEnv("GEMINI_API_KEY", "GOOGLE_API_KEY");
       return apiKey
         ? { settings: { id: provider, apiKey } }
+        : { error: `Missing ${providerEnvHint(provider)}.` };
+    }
+    case "groq": {
+      const apiKey = firstEnv("GROQ_API_KEY");
+      return apiKey
+        ? {
+            settings: {
+              id: provider,
+              apiKey,
+              baseUrl: normalizeBaseUrl(clean(process.env.GROQ_BASE_URL), "https://api.groq.com/openai/v1"),
+            },
+          }
         : { error: `Missing ${providerEnvHint(provider)}.` };
     }
     case "openai": {
@@ -163,6 +178,7 @@ function detectProvider(): ProviderId | null {
     return isProviderId(configured) ? configured : null;
   }
   if (firstEnv("GEMINI_API_KEY", "GOOGLE_API_KEY")) return "gemini";
+  if (firstEnv("GROQ_API_KEY")) return "groq";
   if (firstEnv("OPENAI_API_KEY")) return "openai";
   if (firstEnv("ANTHROPIC_API_KEY")) return "anthropic";
   if (firstEnv("AZURE_OPENAI_API_KEY") && firstEnv("AZURE_OPENAI_ENDPOINT")) {
@@ -197,7 +213,7 @@ export function resolveProvider(input: ResolveProviderInput = {}): ProviderResol
     return {
       provider: null,
       models: [],
-      error: `Unknown provider "${invalid}". Use gemini, openai, anthropic, azure, bedrock, or ollama.`,
+      error: `Unknown provider "${invalid}". Use gemini, groq, openai, anthropic, azure, bedrock, or ollama.`,
     };
   }
 

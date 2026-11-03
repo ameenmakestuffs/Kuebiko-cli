@@ -4,6 +4,7 @@ import { geminiRepair, verifyGemini } from "./gemini.js";
 import { anthropicRepair, anthropicVerify } from "./providers/anthropic.js";
 import { azureRepair, azureVerify } from "./providers/azure.js";
 import { bedrockRepair, bedrockVerify } from "./providers/bedrock.js";
+import { groqRepair, groqVerify } from "./providers/groq.js";
 import { ollamaRepair, ollamaVerify } from "./providers/ollama.js";
 import { openAiRepair, openAiVerify } from "./providers/openai.js";
 
@@ -23,6 +24,8 @@ async function repair(
   switch (provider) {
     case "gemini":
       return await geminiRepair({ apiKey: settings.apiKey ?? "", model, context });
+    case "groq":
+      return await groqRepair(settings, model, context);
     case "openai":
       return await openAiRepair(settings, model, context);
     case "anthropic":
@@ -49,6 +52,7 @@ export async function aiRepair(input: AiRepairInput): Promise<RepairProposal> {
 
 const verify = new Map<ProviderId, (settings: ProviderSettings, model: string) => Promise<string>>([
   ["gemini", async (settings, model) => await verifyGemini(settings.apiKey ?? "", model)],
+  ["groq", groqVerify],
   ["openai", openAiVerify],
   ["anthropic", anthropicVerify],
   ["azure", azureVerify],
