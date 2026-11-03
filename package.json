@@ -1,6 +1,6 @@
 {
   "name": "aegis-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The autonomous on-call engineer for your terminal. Runs your tests, diagnoses failures, patches code, and re-runs until green.",
   "type": "module",
   "bin": {
@@ -10,6 +10,8 @@
   "files": [
     "dist",
     "demo-sandbox",
+    "bench",
+    "action.yml",
     "README.md",
     "LICENSE"
   ],
@@ -25,6 +27,8 @@
     "demo": "node dist/cli/index.js demo",
     "demo:offline": "node dist/cli/index.js demo --offline",
     "demo:reset": "node dist/cli/index.js demo --seed-only",
+    "bench": "node dist/cli/index.js bench",
+    "bench:live": "node dist/cli/index.js bench --live",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "keywords": [

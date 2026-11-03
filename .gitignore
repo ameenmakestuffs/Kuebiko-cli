@@ -16,6 +16,8 @@ dist/
 
 # Test and coverage output
 coverage/
+__pycache__/
+*.py[cod]
 
 # Logs and crash reports
 *.log

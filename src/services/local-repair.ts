@@ -4,7 +4,7 @@ import type { FilePatch, RepairProposal, TriageResult } from "../core/types.js";
 import { listProjectTree } from "./context.js";
 import { isTestFile } from "./triage.js";
 
-const CODE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py"]);
+const CODE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".go"]);
 const MAX_FILE_BYTES = 400_000;
 
 const OP_SWAPS: Record<string, string[]> = {
@@ -23,6 +23,8 @@ const OP_SWAPS: Record<string, string[]> = {
   "<=": [">="],
   "&&": ["||"],
   "||": ["&&"],
+  and: ["or"],
+  or: ["and"],
 };
 
 const STOP_WORDS = new Set([
@@ -165,8 +167,10 @@ function scan(code: string, python: boolean): Token[] {
       let end = i + 1;
       while (end < code.length && isIdentifierPart(code[end] ?? "")) end += 1;
       const text = code.slice(i, end);
-      if (text === "true" || text === "false") {
+      if (text === "true" || text === "false" || (python && (text === "True" || text === "False"))) {
         tokens.push({ kind: "boolean", start: i, end, text, line: lineFor(starts, i) });
+      } else if (python && (text === "and" || text === "or")) {
+        tokens.push({ kind: "operator", start: i, end, text, line: lineFor(starts, i) });
       }
       i = end;
       continue;
@@ -259,19 +263,18 @@ function candidateFiles(input: LocalRepairInput): string[] {
   });
 
   const sourceFiles = codeFiles.filter((file) => !isTestFile(file));
-  if (sourceFiles.length > 0) return sourceFiles.slice(0, 6);
-
-  if (codeFiles.length > 0) return codeFiles.slice(0, 4);
-
   const tree = listProjectTree(input.root, input.ignore, 5, 500);
   const discovered = tree
     .filter((rel) => CODE_EXTENSIONS.has(extname(rel).toLowerCase()))
     .filter((rel) => !isTestFile(rel))
     .filter((rel) => !rel.includes("node_modules"))
-    .slice(0, 6)
-    .map((rel) => join(input.root, rel));
+    .map((rel) => join(input.root, rel))
+    .filter((file) => existsSync(file) && !sourceFiles.includes(file));
 
-  return discovered.filter((file) => existsSync(file));
+  const merged = [...sourceFiles, ...discovered];
+  if (merged.length > 0) return merged.slice(0, 6);
+  if (codeFiles.length > 0) return codeFiles.slice(0, 4);
+  return [];
 }
 
 function buildCandidates(input: LocalRepairInput): Candidate[] {
@@ -343,7 +346,11 @@ function buildCandidates(input: LocalRepairInput): Candidate[] {
           addCandidate(token, replacement, `${token.text} → ${replacement}`, 120, "operator");
         }
       } else if (token.kind === "boolean") {
-        addCandidate(token, token.text === "true" ? "false" : "true", `${token.text} → ${!token.text}`, 80, "boolean");
+        const isTrue = token.text.toLowerCase() === "true";
+        const replacement = isTrue
+          ? token.text === "True" ? "False" : "false"
+          : token.text === "False" ? "True" : "true";
+        addCandidate(token, replacement, `${token.text} → ${replacement}`, 80, "boolean");
       } else if (token.kind === "number") {
         const value = Number(token.text);
         if (!Number.isFinite(value)) continue;

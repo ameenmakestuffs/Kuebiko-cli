@@ -7,17 +7,17 @@ import type {
   ExecResult,
   FilePatch,
   PatchStat,
+  ProviderId,
   RepairProposal,
   RunOptions,
   SessionReport,
 } from "./types.js";
 import { TAGLINE, VERSION } from "./version.js";
-import { getGeminiApiKey } from "./env.js";
-import { buildModelLadder } from "./models.js";
+import { providerLabel, resolveProvider } from "./providers.js";
 import { execute } from "../services/executor.js";
 import { triage } from "../services/triage.js";
 import { buildContext } from "../services/context.js";
-import { geminiRepair } from "../services/gemini.js";
+import { aiRepair } from "../services/ai-repair.js";
 import { localRepair } from "../services/local-repair.js";
 import { Patcher, PatchValidationError, registerCleanup } from "../services/patcher.js";
 import { makeSessionId, writeReport } from "../services/reporter.js";
@@ -29,8 +29,14 @@ function displayPath(root: string, file: string): string {
   return relative(root, file).split(/[\\/]/).join("/") || file;
 }
 
-function engineLabel(engine: ActiveEngine, models: string[]): string {
-  return engine === "gemini" ? `Gemini · ${models.join(" → ")}` : "local mutation engine";
+function engineLabel(
+  engine: ActiveEngine,
+  provider: ProviderId | null,
+  models: string[],
+): string {
+  return engine === "ai" && provider
+    ? `${providerLabel(provider)} · ${models.join(" → ")}`
+    : "local mutation engine";
 }
 
 function readTextFileSync(root: string, relPath: string): string {
@@ -51,38 +57,49 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   const sessionId = makeSessionId();
   const patcher = new Patcher(options.cwd, sessionId);
   const attempts: AttemptReport[] = [];
-  const apiKey = getGeminiApiKey();
 
   let initialExitCode = 1;
   let finalExitCode = 1;
   let success = false;
   let message = "";
   let activeEngine: ActiveEngine | "none" = "none";
+  let activeProvider: ProviderId | undefined;
 
   ui.banner(VERSION, TAGLINE);
-  const requestedEngine = options.offline || options.engine === "local"
-    ? "local"
-    : options.engine === "gemini"
-      ? "gemini"
-      : apiKey
-        ? "gemini"
-        : "local";
-  const modelLadder = buildModelLadder(options.model);
+  const resolution = resolveProvider({
+    requested: options.provider,
+    engine: options.engine,
+    model: options.model,
+    configModel: options.configModel,
+  });
+  const canUseAi =
+    !options.offline &&
+    options.engine !== "local" &&
+    Boolean(resolution.settings) &&
+    resolution.models.length > 0;
+  const requestedEngine: ActiveEngine = canUseAi ? "ai" : "local";
+  const provider = resolution.provider;
+  const providerSettings = resolution.settings;
+  const modelLadder = resolution.models;
 
   const summaryRows: Array<[string, string]> = [
     ["project", options.cwd],
     ["command", options.command],
-    ["engine", requestedEngine === "gemini" ? `Gemini · ${modelLadder.join(" → ")}` : "local mutation engine"],
+    ["engine", engineLabel(requestedEngine, provider, modelLadder)],
     ["loop", `up to ${options.maxIterations} ${plural(options.maxIterations, "attempt")}`],
     ["timeout", `${Math.round(options.timeoutMs / 1000)}s per run`],
   ];
   if (options.dryRun) summaryRows.push(["mode", "dry run (final files stay unchanged)"]);
   ui.kv(summaryRows);
 
-  if (!apiKey && !options.offline && options.engine !== "local") {
+  if (!canUseAi && !options.offline && options.engine !== "local") {
     ui.blank();
-    ui.warn("No GEMINI_API_KEY found — using the built-in local repair engine.");
-    ui.muted("Set GEMINI_API_KEY (or use aegis doctor) to enable AI-powered repairs.");
+    if (resolution.error) {
+      ui.warn(`${resolution.error} Using the built-in local repair engine.`);
+    } else {
+      ui.warn("No AI provider configured — using the built-in local repair engine.");
+    }
+    ui.muted("Set a provider key and run `aegis doctor` to enable AI-powered repairs.");
   }
 
   ui.blank();
@@ -120,43 +137,44 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     ui.outputTail("failure output", diagnosis.tail, options.verbose ? 200 : 12);
 
     let engine: ActiveEngine = requestedEngine;
-    if (!apiKey && engine === "gemini") {
+    if (engine === "ai" && (!provider || !providerSettings || modelLadder.length === 0)) {
       engine = "local";
-      ui.warn("Gemini is unavailable without an API key. Falling back to the local engine.");
+      ui.warn("The selected AI provider is unavailable. Falling back to the local engine.");
     }
 
     ui.blank();
-    ui.step(`Repairing with ${engineLabel(engine, modelLadder)}`);
+    ui.step(`Repairing with ${engineLabel(engine, provider, modelLadder)}`);
     let proposal: RepairProposal | null = null;
 
-    if (engine === "gemini") {
+    if (engine === "ai" && provider && providerSettings) {
       const context = buildContext({
         root: options.cwd,
         result,
         triage: diagnosis,
         ignore: options.ignore,
       });
+      const label = providerLabel(provider);
 
       for (const model of modelLadder) {
-        const aiTask = ui.task(`Analyzing failure with Gemini · ${model}`);
+        const aiTask = ui.task(`Analyzing failure with ${label} · ${model}`);
         try {
-          const candidate = await geminiRepair({ apiKey, model, context });
+          const candidate = await aiRepair({ provider, settings: providerSettings, model, context });
           if (candidate.patches.length === 0) {
-            aiTask.warn(`Gemini · ${model} declined to propose a safe patch.`);
+            aiTask.warn(`${label} · ${model} declined to propose a safe patch.`);
             continue;
           }
           proposal = candidate;
           aiTask.succeed(
-            `Gemini · ${model} proposed ${candidate.patches.length} ${plural(candidate.patches.length, "patch", "patches")}`,
+            `${label} · ${model} proposed ${candidate.patches.length} ${plural(candidate.patches.length, "patch", "patches")}`,
           );
           break;
         } catch (error) {
-          aiTask.fail(`Gemini · ${model} failed: ${error instanceof Error ? error.message : String(error)}`);
+          aiTask.fail(`${label} · ${model} failed: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       if (proposal === null) {
-        ui.warn("Gemini ladder exhausted. Falling back to the local repair engine.");
+        ui.warn(`${label} ladder exhausted. Falling back to the local repair engine.`);
         engine = "local";
       }
     }
@@ -194,8 +212,8 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
 
     if (!proposal || proposal.patches.length === 0) {
       message =
-        engine === "gemini"
-          ? "Gemini did not return a safe patch, and the local engine could not verify one."
+        engine === "ai"
+          ? "The AI provider did not return a safe patch, and the local engine could not verify one."
           : "No safe local repair could be verified within the candidate budget.";
       ui.blank();
       ui.warn(message);
@@ -203,6 +221,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     }
 
     activeEngine = proposal.engine;
+    activeProvider = proposal.provider;
 
     if (options.dryRun) {
       ui.heading("Proposed patch (dry run)");
@@ -216,6 +235,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       attempts.push({
         iteration,
         engine: proposal.engine,
+        provider: proposal.provider,
         model: proposal.model,
         summary: proposal.summary,
         patches: stats,
@@ -271,10 +291,12 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       success = true;
       finalExitCode = 0;
       activeEngine = proposal.engine;
+      activeProvider = proposal.provider;
       message = `Self-healed after ${iteration} ${plural(iteration, "repair", "repairs")}.`;
       attempts.push({
         iteration,
         engine: proposal.engine,
+        provider: proposal.provider,
         model: proposal.model,
         summary: proposal.summary,
         patches: stats,
@@ -292,6 +314,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     attempts.push({
       iteration,
       engine: proposal.engine,
+      provider: proposal.provider,
       model: proposal.model,
       summary: proposal.summary,
       patches: stats,
@@ -322,6 +345,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     initialExitCode,
     finalExitCode,
     engine: activeEngine,
+    ...(activeProvider ? { provider: activeProvider } : {}),
     attempts,
     message,
   };

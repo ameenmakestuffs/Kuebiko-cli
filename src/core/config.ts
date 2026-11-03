@@ -50,13 +50,16 @@ function asPositiveInt(value: unknown, fallback: number, min: number, max: numbe
 }
 
 function asEngine(value: unknown): EngineMode | undefined {
-  return value === "auto" || value === "gemini" || value === "local" ? value : undefined;
+  return value === "auto" || value === "ai" || value === "gemini" || value === "local" ? value : undefined;
 }
 
 export function loadConfig(cwd: string): AegisConfig {
   const file = readJsonConfig(cwd);
   const envEngine = asEngine(process.env.AEGIS_ENGINE);
   const fileEngine = asEngine(file.engine);
+  const provider =
+    process.env.AEGIS_PROVIDER ??
+    (typeof file.provider === "string" && file.provider.trim() ? file.provider.trim() : undefined);
 
   const ignore = Array.isArray(file.ignore)
     ? [...new Set([...DEFAULT_IGNORE, ...file.ignore.filter((item): item is string => typeof item === "string")])]
@@ -76,8 +79,9 @@ export function loadConfig(cwd: string): AegisConfig {
       3_600_000,
     ),
     model:
-      process.env.GEMINI_MODEL ??
+      process.env.AEGIS_MODEL ??
       (typeof file.model === "string" && file.model.trim() ? file.model.trim() : DEFAULT_CONFIG.model),
+    provider,
     engine: envEngine ?? fileEngine ?? DEFAULT_CONFIG.engine,
     maxCandidates: asPositiveInt(file.maxCandidates, DEFAULT_CONFIG.maxCandidates, 4, 200),
     ignore,

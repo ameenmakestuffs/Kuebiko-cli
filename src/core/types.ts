@@ -1,6 +1,8 @@
-export type EngineMode = "auto" | "gemini" | "local";
+export type ProviderId = "gemini" | "openai" | "anthropic" | "azure" | "bedrock" | "ollama";
 
-export type ActiveEngine = "gemini" | "local";
+export type EngineMode = "auto" | "ai" | "gemini" | "local";
+
+export type ActiveEngine = "ai" | "local";
 
 export interface RunOptions {
   command: string;
@@ -11,7 +13,9 @@ export interface RunOptions {
   dryRun: boolean;
   verbose: boolean;
   json: boolean;
-  model: string;
+  model?: string;
+  configModel?: string;
+  provider?: ProviderId;
   engine: EngineMode;
   maxCandidates: number;
   ignore: string[];
@@ -56,6 +60,7 @@ export interface FilePatch {
 
 export interface RepairProposal {
   engine: ActiveEngine;
+  provider?: ProviderId;
   model?: string;
   summary: string;
   patches: FilePatch[];
@@ -79,6 +84,7 @@ export interface PatchStat {
 export interface AttemptReport {
   iteration: number;
   engine: ActiveEngine;
+  provider?: ProviderId;
   model?: string;
   summary: string;
   patches: PatchStat[];
@@ -98,6 +104,7 @@ export interface SessionReport {
   initialExitCode: number;
   finalExitCode: number;
   engine: ActiveEngine | "none";
+  provider?: ProviderId;
   attempts: AttemptReport[];
   message: string;
 }
@@ -106,6 +113,7 @@ export interface AegisConfig {
   maxIterations: number;
   timeoutMs: number;
   model: string;
+  provider?: string;
   engine: EngineMode;
   maxCandidates: number;
   ignore: string[];

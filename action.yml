@@ -1,0 +1,106 @@
+name: Aegis Verified Repair
+description: Run a command, repair failures through a safety-first AI ladder, and verify the patch before keeping it.
+author: Ameen Ansari
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  command:
+    description: Command to run and repair, for example "npm test".
+    required: false
+    default: "npm test"
+  cwd:
+    description: Project directory, relative to the GitHub workspace.
+    required: false
+    default: "."
+  engine:
+    description: Repair engine: auto, ai, gemini, or local.
+    required: false
+    default: "auto"
+  provider:
+    description: AI provider: gemini, openai, anthropic, azure, bedrock, ollama, or auto.
+    required: false
+    default: "auto"
+  model:
+    description: Optional model override for the selected provider.
+    required: false
+    default: ""
+  timeout:
+    description: Timeout in seconds for each command run.
+    required: false
+    default: "300"
+  max-iterations:
+    description: Maximum repair attempts.
+    required: false
+    default: "3"
+  offline:
+    description: Set to true to skip AI and use only the local engine.
+    required: false
+    default: "false"
+  node-version:
+    description: Node.js version used to run Aegis.
+    required: false
+    default: "20"
+
+outputs:
+  report-path:
+    description: Path to the generated Aegis session report.
+    value: ${{ steps.repair.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs['node-version'] }}
+
+    - name: Install Aegis
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Build Aegis
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm run build
+
+    - name: Run verified repair
+      id: repair
+      shell: bash
+      env:
+        NO_SPINNER: "1"
+        AEGIS_ACTION_PATH: ${{ github.action_path }}
+        AEGIS_COMMAND: ${{ inputs.command }}
+        AEGIS_CWD: ${{ inputs.cwd }}
+        AEGIS_ENGINE: ${{ inputs.engine }}
+        AEGIS_PROVIDER: ${{ inputs.provider }}
+        AEGIS_MODEL: ${{ inputs.model }}
+        AEGIS_TIMEOUT: ${{ inputs.timeout }}
+        AEGIS_MAX_ITERATIONS: ${{ inputs['max-iterations'] }}
+        AEGIS_OFFLINE: ${{ inputs.offline }}
+      run: |
+        set -euo pipefail
+        cwd="$AEGIS_CWD"
+        if [ "$cwd" = "." ]; then
+          cwd="$GITHUB_WORKSPACE"
+        elif [[ "$cwd" != /* ]]; then
+          cwd="$GITHUB_WORKSPACE/$cwd"
+        fi
+
+        args=("run" "$AEGIS_COMMAND" "--cwd" "$cwd" "--engine" "$AEGIS_ENGINE" "--timeout" "$AEGIS_TIMEOUT" "--max-iterations" "$AEGIS_MAX_ITERATIONS")
+        if [ -n "$AEGIS_PROVIDER" ] && [ "$AEGIS_PROVIDER" != "auto" ]; then
+          args+=("--provider" "$AEGIS_PROVIDER")
+        fi
+        if [ -n "$AEGIS_MODEL" ]; then
+          args+=("--model" "$AEGIS_MODEL")
+        fi
+        if [ "$AEGIS_OFFLINE" = "true" ]; then
+          args+=("--offline")
+        fi
+
+        status=0
+        node "$AEGIS_ACTION_PATH/dist/cli/index.js" "${args[@]}" || status=$?
+        echo "report-path=$cwd/.aegis/reports/latest.json" >> "$GITHUB_OUTPUT"
+        exit $status

@@ -27,7 +27,7 @@ No install? Try the deterministic sandbox:
 npx aegis-cli demo
 ```
 
-Add a Gemini key for AI-powered repairs:
+Add a model provider (Gemini is the default):
 
 ```bash
 cp .env.example .env
@@ -80,6 +80,50 @@ Every attempt is bounded, reversible, and auditable. Aegis never keeps a patch t
 
 If Tier 1 is rate-limited, unavailable, times out, or declines to patch, Aegis advances automatically. Tier 2 handles sustained load. Tier 3 guarantees the loop still works offline.
 
+### Bring your own model
+
+The ladder is model-agnostic. Select a provider with `--provider`, `AEGIS_PROVIDER`, or auto-detection.
+
+| Provider | Authentication | Default ladder |
+| --- | --- | --- |
+| Gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-3.8-flash` → `gemini-3.5-flash-lite` |
+| OpenAI | `OPENAI_API_KEY`, optional `OPENAI_BASE_URL` | `gpt-4.1` → `gpt-4.1-mini` |
+| Anthropic | `ANTHROPIC_API_KEY`, optional `ANTHROPIC_BASE_URL` | `claude-sonnet-4-5` → `claude-haiku-4-5` |
+| Azure OpenAI | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` | deployment |
+| AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `BEDROCK_MODEL` | `BEDROCK_MODEL` |
+| Ollama | `OLLAMA_BASE_URL` or `OLLAMA_HOST` | `llama3.1` |
+
+Override with `AEGIS_MODEL`, a provider-specific model variable, or `--model`.
+
+## Supported languages
+
+Aegis repairs any text source file the model can edit. Triage and the local deterministic engine currently have dedicated adapters for JavaScript/TypeScript, Python, and Go.
+
+## GitHub Actions
+
+```yaml
+- uses: ameen-ansarii/Aegis-CLI@main
+  with:
+    command: npm test
+    engine: auto
+  env:
+    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+```
+
+Set the provider key as an environment secret; the Action never asks for keys as inputs. Add `.aegis/` to your repository's `.gitignore`. The Action exposes `report-path` for artifact upload.
+
+## Benchmark
+
+`aegis bench` runs the bundled JavaScript, Python, and Go repair fixtures in isolated temporary copies, then reports verified repair rate and median time-to-green. It uses the local engine by default for deterministic CI runs.
+
+```bash
+aegis bench              # deterministic local benchmark
+aegis bench --live       # exercise the configured AI provider
+aegis bench --json       # machine-readable results
+```
+
+Benchmark reports are written to `.aegis/bench/latest.json`. Add your own suite with `--suite path/to/suite.json`; see `bench/suites/starter/suite.json` for the format.
+
 ## Enterprise safety guarantees
 
 - **Root confinement** — every write must resolve inside the project root; traversal is rejected.
@@ -96,39 +140,43 @@ If Tier 1 is rate-limited, unavailable, times out, or declines to patch, Aegis a
 | --- | --- |
 | `aegis run "<command>"` | Run, diagnose, patch, verify, and repeat until green. |
 | `aegis demo` | Reseed the bundled failing sandbox and run the full loop. |
-| `aegis doctor` | Check Node, write access, key, and engine configuration. |
-| `aegis doctor --live` | Verify the live Gemini ladder end to end. |
+| `aegis doctor` | Check Node, write access, provider, and engine configuration. |
+| `aegis doctor --live` | Verify the live provider ladder end to end. |
+| `aegis bench` | Run the deterministic multi-language repair benchmark. |
 
 | Flag | Applies to | Description |
 | --- | --- | --- |
 | `--cwd <dir>` | `run` | Project directory to operate on. |
-| `--model <model>` | `run` | Primary model (default `gemini-3.8-flash`). |
-| `--timeout <seconds>` | `run` | Timeout per command run (default `300`). |
+| `--provider <name>` | `run`, `doctor`, `bench` | gemini, openai, anthropic, azure, bedrock, or ollama. |
+| `--model <model>` | `run`, `doctor`, `bench` | Primary model override. |
+| `--timeout <seconds>` | `run`, `bench` | Timeout per command run (default `300` / `60`). |
 | `--max-iterations <n>` | `run` | Maximum repair attempts (default `3`). |
 | `--offline` | `run`, `demo` | Skip AI; use the local engine only. |
 | `--dry-run` | `run`, `demo` | Propose the patch without keeping it. |
-| `--json` | `run` | Emit a machine-readable session report. |
+| `--json` | `run`, `bench` | Emit a machine-readable report. |
 | `--verbose` | `run` | Show full output and stack traces. |
-| `--live` | `doctor` | Make a real Gemini request to verify the ladder. |
+| `--live` | `doctor`, `bench` | Make real provider calls instead of static/local checks. |
 
 ## Configuration
 
-Aegis resolves configuration in this order: process environment, project `.env`, global `~/.aegis/.env`. Both `GEMINI_API_KEY` and `GOOGLE_API_KEY` are accepted.
+Aegis resolves configuration in this order: process environment, project `.env`, global `~/.aegis/.env`.
 
 ```bash
 # .env
 GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-3.8-flash
-AEGIS_ENGINE=auto
+AEGIS_PROVIDER=gemini        # optional: gemini, openai, anthropic, azure, bedrock, ollama
+AEGIS_MODEL=gemini-3.8-flash # optional: generic override
+AEGIS_ENGINE=auto            # auto, ai, gemini, or local
 ```
 
-Project-level behavior can be tuned with `aegis.config.json`:
+Provider-specific keys and model variables are listed in “Bring your own model.” Project-level behavior can be tuned with `aegis.config.json`:
 
 ```json
 {
   "maxIterations": 3,
   "timeoutMs": 300000,
   "engine": "auto",
+  "provider": "gemini",
   "model": "gemini-3.8-flash",
   "maxCandidates": 48
 }
@@ -151,9 +199,14 @@ npm install
 npm run build
 npm test
 npm run demo:offline
+npm run bench
 ```
 
-The test suite covers triage, diffing, patch safety, local repair, model-ladder routing, and AI response validation.
+The test suite covers triage, diffing, patch safety, polyglot local repair, provider routing, model-ladder selection, and AI response validation.
+
+## Releases & Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history, new features, and upgrade notes across releases.
 
 ## License
 

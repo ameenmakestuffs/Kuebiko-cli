@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ExecResult } from "../core/types.js";
 
 const MAX_CAPTURE = 2_000_000;
@@ -35,6 +38,7 @@ export async function execute(
   timeoutMs: number,
 ): Promise<ExecResult> {
   const startedAt = Date.now();
+  const pycache = mkdtempSync(join(tmpdir(), "aegis-pycache-"));
 
   return await new Promise<ExecResult>((resolve) => {
     let stdout = "";
@@ -46,7 +50,7 @@ export async function execute(
       cwd,
       shell: true,
       windowsHide: true,
-      env: { ...process.env, FORCE_COLOR: "1" },
+      env: { ...process.env, FORCE_COLOR: "1", PYTHONPYCACHEPREFIX: pycache },
       detached: process.platform !== "win32",
     });
 
@@ -54,6 +58,7 @@ export async function execute(
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
+      rmSync(pycache, { recursive: true, force: true });
       if (extraError) stderr = appendCapped(stderr, extraError);
       resolve({
         command,

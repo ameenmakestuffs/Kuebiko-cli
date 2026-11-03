@@ -1,0 +1,27 @@
+{
+  "name": "Aegis starter repair suite",
+  "version": 1,
+  "cases": [
+    {
+      "name": "js-discount-sign",
+      "language": "javascript",
+      "path": "js-discount",
+      "commands": ["npm test"]
+    },
+    {
+      "name": "python-discount-sign",
+      "language": "python",
+      "path": "python-discount",
+      "commands": [
+        "python -m unittest discover -s test -v",
+        "python3 -m unittest discover -s test -v"
+      ]
+    },
+    {
+      "name": "go-discount-sign",
+      "language": "go",
+      "path": "go-discount",
+      "commands": ["go test ./..."]
+    }
+  ]
+}

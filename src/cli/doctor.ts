@@ -1,14 +1,21 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getGeminiApiKey } from "../core/env.js";
-import { buildModelLadder, PRIMARY_MODEL } from "../core/models.js";
+import type { EngineMode } from "../core/types.js";
+import { providerEnvHint, providerLabel, resolveProvider } from "../core/providers.js";
 import { TAGLINE, VERSION } from "../core/version.js";
-import { verifyGemini } from "../services/gemini.js";
+import { verifyAi } from "../services/ai-repair.js";
 import { theme } from "../ui/theme.js";
 import { Ui } from "../ui/ui.js";
 
 export interface DoctorOptions {
   live?: boolean;
+  provider?: string;
+  model?: string;
+}
+
+function engineMode(): EngineMode {
+  const value = process.env.AEGIS_ENGINE;
+  return value === "ai" || value === "gemini" || value === "local" ? value : "auto";
 }
 
 export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promise<number> {
@@ -33,35 +40,51 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
     ui.success(`Project directory: ${cwd}`);
   }
 
-  const key = getGeminiApiKey();
-  if (key) {
-    ui.success(`Gemini API key detected (${key.slice(0, 4)}…${key.slice(-4)})`);
+  const resolution = resolveProvider({
+    requested: options.provider,
+    engine: engineMode(),
+    model: options.model,
+  });
+
+  if (resolution.provider && resolution.settings && resolution.models.length > 0) {
+    ui.success(`${providerLabel(resolution.provider)} configured · ${providerEnvHint(resolution.provider)}`);
+    ui.info(`Models: ${resolution.models.join(" → ")}`);
+  } else if (resolution.provider && resolution.settings) {
+    healthy = false;
+    ui.fail(resolution.error ?? "The selected provider has no usable model.");
+    ui.muted("Set a deployment/model name, then run `aegis doctor` again.");
+  } else if (resolution.error) {
+    healthy = false;
+    ui.fail(resolution.error);
+    ui.muted("Aegis will fall back to the local mutation engine.");
   } else {
-    ui.warn("Gemini API key not set — Aegis will use its local mutation engine.");
-    ui.muted("Add GEMINI_API_KEY to .env or ~/.aegis/.env to enable AI repairs.");
+    ui.warn("No AI provider configured — Aegis will use its local mutation engine.");
+    ui.muted("Set GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or run Ollama locally.");
   }
 
   if (options.live) {
-    if (!key) {
+    if (!resolution.provider || !resolution.settings) {
       healthy = false;
-      ui.fail("Cannot run a live Gemini check without an API key.");
+      ui.fail("Cannot run a live check without a configured AI provider.");
     } else {
-      const ladder = buildModelLadder(process.env.GEMINI_MODEL ?? PRIMARY_MODEL);
+      const label = providerLabel(resolution.provider);
       let liveOk = false;
-      for (const model of ladder) {
-        const task = ui.task(`Calling Gemini · ${model}`);
+      for (const model of resolution.models) {
+        const task = ui.task(`Calling ${label} · ${model}`);
         try {
-          const reply = (await verifyGemini(key, model)).replace(/\s+/g, " ").trim();
-          task.succeed(`Gemini · ${model} replied: ${reply || "ok"}`);
+          const reply = (await verifyAi(resolution.provider, resolution.settings, model))
+            .replace(/\s+/g, " ")
+            .trim();
+          task.succeed(`${label} · ${model} replied: ${reply || "ok"}`);
           liveOk = true;
           break;
         } catch (error) {
-          task.fail(`Gemini · ${model} failed: ${error instanceof Error ? error.message : String(error)}`);
+          task.fail(`${label} · ${model} failed: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       if (!liveOk) {
         healthy = false;
-        ui.fail("Every Gemini model in the ladder failed.");
+        ui.fail(`Every ${label} model in the ladder failed.`);
       }
     }
   }
@@ -80,13 +103,15 @@ export async function runDoctor(cwd: string, options: DoctorOptions = {}): Promi
     }
   }
 
-  const engine = process.env.AEGIS_ENGINE ?? "auto";
-  const resolved = !key || engine === "local" ? "local mutation engine" : "Gemini";
+  const resolved =
+    resolution.provider && resolution.settings
+      ? `${providerLabel(resolution.provider)} · ${resolution.models.join(" → ")}`
+      : "local mutation engine";
   ui.info(`Repair engine: ${theme.accent(resolved)}`);
 
   ui.blank();
   if (healthy) {
-    ui.success("Aegis is ready. Try: aegis run \"npm test\"");
+    ui.success('Aegis is ready. Try: aegis run "npm test"');
   } else {
     ui.fail("Fix the items above before running Aegis.");
   }

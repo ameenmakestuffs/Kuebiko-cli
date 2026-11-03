@@ -29,7 +29,9 @@ export function loadEnvironment(projectCwd: string): EnvLoadResult {
   for (const file of candidates) {
     if (files.includes(file) || !existsSync(file)) continue;
     files.push(file);
-    Object.assign(merged, readEnvFile(file));
+    for (const [key, value] of Object.entries(readEnvFile(file))) {
+      if (value.trim()) merged[key] = value;
+    }
   }
 
   const keys: string[] = [];

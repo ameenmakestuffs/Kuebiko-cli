@@ -2,6 +2,7 @@
   "maxIterations": 3,
   "timeoutMs": 300000,
   "engine": "auto",
+  "provider": "gemini",
   "model": "gemini-3.8-flash",
   "maxCandidates": 48,
   "ignore": ["vendor", "tmp"]

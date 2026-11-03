@@ -31,3 +31,6 @@ jobs:
 
       - name: Restore the seeded demo bug
         run: npm run demo:reset
+
+      - name: Run the multi-language repair benchmark
+        run: npm run bench

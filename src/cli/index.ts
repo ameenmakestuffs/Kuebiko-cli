@@ -4,12 +4,13 @@ import { existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { loadConfig, resolveProjectCwd } from "../core/config.js";
 import { loadEnvironment } from "../core/env.js";
-import { PRIMARY_MODEL } from "../core/models.js";
+import { isProviderId, PRIMARY_MODEL } from "../core/models.js";
 import { runSession } from "../core/session.js";
-import type { EngineMode, RunOptions, SessionReport } from "../core/types.js";
+import type { EngineMode, ProviderId, RunOptions, SessionReport } from "../core/types.js";
 import { TAGLINE, VERSION } from "../core/version.js";
 import { runCleanups } from "../services/patcher.js";
 import { Ui } from "../ui/ui.js";
+import { runBench } from "./bench.js";
 import { runDoctor } from "./doctor.js";
 import { seedDemo } from "./demo.js";
 
@@ -18,6 +19,7 @@ interface RunCliOptions {
   maxIterations?: string;
   offline?: boolean;
   engine?: string;
+  provider?: string;
   model?: string;
   timeout?: string;
   maxCandidates?: string;
@@ -37,8 +39,17 @@ function parseInteger(value: string | undefined, label: string, min: number, max
 
 function resolveEngine(value: string | undefined): EngineMode | undefined {
   if (value === undefined) return undefined;
-  if (value === "auto" || value === "gemini" || value === "local") return value;
-  throw new Error('--engine must be one of: auto, gemini, local.');
+  if (value === "auto" || value === "ai" || value === "gemini" || value === "local") return value;
+  throw new Error('--engine must be one of: auto, ai, gemini, local.');
+}
+
+function resolveProviderOption(value: string | undefined): ProviderId | undefined {
+  if (value === undefined || value.trim() === "" || value === "auto") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (!isProviderId(normalized)) {
+    throw new Error('--provider must be one of: gemini, openai, anthropic, azure, bedrock, ollama.');
+  }
+  return normalized;
 }
 
 async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<number> {
@@ -57,6 +68,7 @@ async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<n
   const timeoutSeconds = parseInteger(cli.timeout, "--timeout", 10, 3600);
   const maxCandidates = parseInteger(cli.maxCandidates, "--max-candidates", 4, 200) ?? config.maxCandidates;
   const engine = resolveEngine(cli.engine) ?? config.engine;
+  const provider = resolveProviderOption(cli.provider) ?? resolveProviderOption(config.provider);
 
   const options: RunOptions = {
     command,
@@ -67,7 +79,9 @@ async function executeRun(commandParts: string[], cli: RunCliOptions): Promise<n
     dryRun: Boolean(cli.dryRun),
     verbose: Boolean(cli.verbose),
     json: Boolean(cli.json),
-    model: cli.model?.trim() || config.model,
+    ...(cli.model?.trim() ? { model: cli.model.trim() } : {}),
+    configModel: config.model,
+    ...(provider ? { provider } : {}),
     engine,
     maxCandidates,
     ignore: config.ignore,
@@ -111,8 +125,9 @@ program
   .option("-C, --cwd <dir>", "project directory to operate on (default: current directory)")
   .option("-i, --max-iterations <n>", "maximum self-healing attempts (default: 3)")
   .option("--offline", "skip AI and use only the local mutation engine")
-  .option("--engine <mode>", "repair engine: auto, gemini, or local")
-  .option("--model <model>", `Gemini model to use (default: ${PRIMARY_MODEL})`)
+  .option("--engine <mode>", "repair engine: auto, ai, gemini, or local")
+  .option("--provider <name>", "AI provider: gemini, openai, anthropic, azure, bedrock, or ollama")
+  .option("--model <model>", `model to use (Gemini default: ${PRIMARY_MODEL})`)
   .option("--timeout <seconds>", "timeout for each command run (default: 300)")
   .option("--max-candidates <n>", "maximum local repair candidates to test (default: 48)")
   .option("--dry-run", "diagnose and propose patches without writing files")
@@ -130,11 +145,17 @@ program
 
 program
   .command("doctor")
-  .description("Check Node, project access, and Gemini configuration.")
-  .option("--live", "make a real Gemini API call to verify the key and model")
-  .action(async (options: { live?: boolean }) => {
+  .description("Check Node, project access, and AI provider configuration.")
+  .option("--live", "make a real AI provider call to verify the key and model")
+  .option("--provider <name>", "check a specific provider")
+  .option("--model <model>", "check a specific model")
+  .action(async (options: { live?: boolean; provider?: string; model?: string }) => {
     loadEnvironment(process.cwd());
-    process.exitCode = await runDoctor(process.cwd(), { live: Boolean(options.live) });
+    process.exitCode = await runDoctor(process.cwd(), {
+      live: Boolean(options.live),
+      ...(options.provider ? { provider: options.provider } : {}),
+      ...(options.model ? { model: options.model } : {}),
+    });
   });
 
 program
@@ -169,6 +190,36 @@ program
     if (options.offline) args.offline = true;
     if (options.dryRun) args.dryRun = true;
     process.exitCode = await executeRun(parts, args);
+  });
+
+program
+  .command("bench")
+  .description("Run the deterministic repair benchmark suite.")
+  .option("--suite <path>", "suite file or directory (default: bundled starter suite)")
+  .option("--live", "use the configured AI provider instead of the local engine")
+  .option("--provider <name>", "AI provider for live benchmarks")
+  .option("--model <model>", "model override for live benchmarks")
+  .option("--timeout <seconds>", "timeout for each benchmark command (default: 60)")
+  .option("--max-candidates <n>", "maximum local repair candidates to test (default: 48)")
+  .option("--output <file>", "write the JSON results to a file")
+  .option("--json", "emit the benchmark report as JSON")
+  .action(async (options: {
+    suite?: string;
+    live?: boolean;
+    provider?: string;
+    model?: string;
+    timeout?: string;
+    maxCandidates?: string;
+    output?: string;
+    json?: boolean;
+  }) => {
+    loadEnvironment(process.cwd());
+    try {
+      process.exitCode = await runBench(options);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
   });
 
 let shuttingDown = false;
