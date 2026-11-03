@@ -13,6 +13,8 @@ import { Ui } from "../ui/ui.js";
 import { runBench } from "./bench.js";
 import { runDoctor } from "./doctor.js";
 import { seedDemo } from "./demo.js";
+import { runExplain } from "./explain.js";
+import { runAsk } from "./ask.js";
 
 interface RunCliOptions {
   cwd?: string;
@@ -192,35 +194,58 @@ program
     process.exitCode = await executeRun(parts, args);
   });
 
-program
-  .command("bench")
-  .description("Run the deterministic repair benchmark suite.")
-  .option("--suite <path>", "suite file or directory (default: bundled starter suite)")
-  .option("--live", "use the configured AI provider instead of the local engine")
-  .option("--provider <name>", "AI provider for live benchmarks")
-  .option("--model <model>", "model override for live benchmarks")
-  .option("--timeout <seconds>", "timeout for each benchmark command (default: 60)")
-  .option("--max-candidates <n>", "maximum local repair candidates to test (default: 48)")
-  .option("--output <file>", "write the JSON results to a file")
-  .option("--json", "emit the benchmark report as JSON")
-  .action(async (options: {
-    suite?: string;
-    live?: boolean;
-    provider?: string;
-    model?: string;
-    timeout?: string;
-    maxCandidates?: string;
-    output?: string;
-    json?: boolean;
-  }) => {
-    loadEnvironment(process.cwd());
-    try {
-      process.exitCode = await runBench(options);
-    } catch (error) {
-      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-      process.exitCode = 1;
-    }
-  });
+  program
+    .command("bench")
+    .description("Run the deterministic repair benchmark suite.")
+    .option("--suite <path>", "suite file or directory (default: bundled starter suite)")
+    .option("--live", "use the configured AI provider instead of the local engine")
+    .option("--provider <name>", "AI provider for live benchmarks")
+    .option("--model <model>", "model override for live benchmarks")
+    .option("--timeout <seconds>", "timeout for each benchmark command (default: 60)")
+    .option("--max-candidates <n>", "maximum local repair candidates to test (default: 48)")
+    .option("--output <file>", "write the JSON results to a file")
+    .option("--json", "emit the benchmark report as JSON")
+    .action(async (options: {
+      suite?: string;
+      live?: boolean;
+      provider?: string;
+      model?: string;
+      timeout?: string;
+      maxCandidates?: string;
+      output?: string;
+      json?: boolean;
+    }) => {
+      loadEnvironment(process.cwd());
+      try {
+        process.exitCode = await runBench(options);
+      } catch (error) {
+        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        process.exitCode = 1;
+      }
+    });
+
+  program
+    .command("explain [error...]")
+    .description("Translate and diagnose an error trace with proposed fixes.")
+    .option("--provider <name>", "AI provider to diagnose with")
+    .option("--model <model>", "model override")
+    .action(async (parts: string[], options: { provider?: string; model?: string }) => {
+      loadEnvironment(process.cwd());
+      const text = parts.join(" ");
+      process.exitCode = await runExplain(text, options);
+    });
+
+  program
+    .command("ask <question...>")
+    .description("Ask a question about the current codebase.")
+    .option("-C, --cwd <dir>", "project directory (default: current directory)")
+    .option("--provider <name>", "AI provider to answer with")
+    .option("--model <model>", "model override")
+    .action(async (questionParts: string[], options: { cwd?: string; provider?: string; model?: string }) => {
+      const cwd = resolveProjectCwd(options.cwd);
+      loadEnvironment(cwd);
+      process.exitCode = await runAsk(questionParts, cwd, options);
+    });
 
 let shuttingDown = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
