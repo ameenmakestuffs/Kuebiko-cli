@@ -110,7 +110,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
   }
 
   ui.blank();
-  const runTask = ui.task(`Running ${options.command}`);
+  const runTask = ui.task(`Running ${options.command}`, "analyzing");
   let result = await execute(options.command, options.cwd, options.timeoutMs);
   initialExitCode = result.exitCode;
   ui.fullOutput("stdout", result.stdout);
@@ -140,6 +140,25 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
       ui.warn("AI engine currently unavailable. Seamlessly deploying Kuebiko local mutation engine 🧮");
     }
 
+    const primeTarget = diagnosis.suspects[0]
+      ? relative(options.cwd, diagnosis.suspects[0]).split(/[\\/]/).join("/")
+      : "test-suite";
+    const indexedOtherFiles = diagnosis.suspects.slice(1).map((s) =>
+      relative(options.cwd, s).split(/[\\/]/).join("/"),
+    );
+
+    ui.agentBox({
+      targetFile: `${primeTarget} +1`,
+      extraFiles: indexedOtherFiles,
+      headline: diagnosis.headline || "Running test suite to isolate regression and verify patch.",
+      todos: [
+        { label: "Parse stack trace & isolate suspect assertion", done: true },
+        { label: "Synthesize Tier 2 deterministic mutation or neural patch", done: false },
+        { label: "Verify 0 test regressions in sandbox", done: false },
+      ],
+      footer: `Attempt ${iteration} of ${options.maxIterations} · ${engine === "ai" ? "Tier 3 Neural" : "Tier 2 Deterministic"} · 0 LLM tokens`,
+    });
+
     // Step 2: Autonomous Healing
     ui.blank();
     ui.stepHeader(
@@ -165,7 +184,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
           ? `Synthesizing fix with ${label} · ${model}`
           : `Synthesizing fix via Kuebiko Neural Engine (${tierName})`;
 
-        const aiTask = ui.task(taskDescription);
+        const aiTask = ui.task(taskDescription, "thinking");
         try {
           const candidate = await aiRepair({ provider, settings: providerSettings, model, context });
           if (candidate.patches.length === 0) {
@@ -208,7 +227,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     }
 
     if (proposal === null && engine === "local") {
-      const localTask = ui.task("Analyzing AST & searching minimal deterministic mutation space");
+      const localTask = ui.task("Analyzing AST & searching minimal deterministic mutation space", "creating");
       proposal = await localRepair({
         root: options.cwd,
         suspects: diagnosis.suspects,
@@ -276,6 +295,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
 
     const applyTask = ui.task(
       `Applying ${proposal.patches.length} ${plural(proposal.patches.length, "patch", "patches")}`,
+      "creating",
     );
     let applied: AppliedPatch[] = [];
     try {
@@ -313,7 +333,7 @@ export async function runSession(options: RunOptions, ui: Ui): Promise<SessionRe
     // Step 3: Verification
     ui.blank();
     ui.stepHeader(3, 3, "Smoke Testing & Verification", "Re-running command to ensure the fix turns build green");
-    const verifyTask = ui.task(`Re-testing: ${options.command}`);
+    const verifyTask = ui.task(`Re-testing: ${options.command}`, "verifying");
     result = await execute(options.command, options.cwd, options.timeoutMs);
     unregister();
 

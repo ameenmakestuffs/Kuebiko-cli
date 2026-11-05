@@ -27,6 +27,55 @@ export const theme = {
   filePath: (text: string): string => chalk.hex("#38BDF8").underline(text),
 };
 
+export type MicroAnimationType = "thinking" | "analyzing" | "creating" | "verifying";
+
+export const microSpinners: Record<MicroAnimationType, { interval: number; frames: string[] }> = {
+  // Iridescent diamond star micro-animation (Thinking...)
+  thinking: {
+    interval: 110,
+    frames: [
+      chalk.hex("#FCA5A5")(" ✦ "),
+      chalk.hex("#F472B6")(" ✧ "),
+      chalk.hex("#A78BFA")(" ⬡ "),
+      chalk.hex("#C084FC")(" ⬢ "),
+      chalk.hex("#818CF8")(" ✦ "),
+    ],
+  },
+  // Amber shifting pixel cluster (Analyzing...)
+  analyzing: {
+    interval: 100,
+    frames: [
+      chalk.hex("#FB923C")(" ▪ "),
+      chalk.hex("#F97316")(" ▫ "),
+      chalk.hex("#EA580C")(" ◽ "),
+      chalk.hex("#C2410C")(" ◾ "),
+      chalk.hex("#EA580C")(" ◼ "),
+    ],
+  },
+  // Magenta staircase streak (Creating...)
+  creating: {
+    interval: 95,
+    frames: [
+      chalk.hex("#F472B6")(" ⠋ "),
+      chalk.hex("#EC4899")(" ⠙ "),
+      chalk.hex("#DB2777")(" ⠹ "),
+      chalk.hex("#BE185D")(" ⠸ "),
+      chalk.hex("#F472B6")(" ⠼ "),
+    ],
+  },
+  // Orange 3x3 matrix wave (Verifying...)
+  verifying: {
+    interval: 115,
+    frames: [
+      chalk.hex("#F97316")(" ▣ "),
+      chalk.hex("#FB923C")(" ▤ "),
+      chalk.hex("#EA580C")(" ▥ "),
+      chalk.hex("#F97316")(" ▦ "),
+      chalk.hex("#FB923C")(" ▧ "),
+    ],
+  },
+};
+
 export const LOGO = [
   "  ██╗  ██╗██╗   ██╗███████╗██████╗ ██╗██╗  ██╗ ██████╗ ",
   "  ██║ ██╔╝██║   ██║██╔════╝██╔══██╗██║██║ ██╔╝██╔═══██╗",

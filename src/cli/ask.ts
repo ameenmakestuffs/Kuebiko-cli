@@ -68,7 +68,7 @@ export async function runAsk(
   }
 
   const projectContext = getProjectSummary(cwd);
-  const task = ui.task("Thinking & searching codebase context...");
+  const task = ui.task("Thinking & searching codebase...", "thinking");
 
   try {
     const answer = await aiChat({

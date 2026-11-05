@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
+.npmrc
 
 # Dependencies
 node_modules/
@@ -35,3 +39,6 @@ crash-*.json
 Thumbs.db
 *.tmp
 playground/
+
+# Separate Private Website Repository
+website/

@@ -1,6 +1,6 @@
 import { relative } from "node:path";
 import ora, { type Ora } from "ora";
-import { colorLogo, theme } from "./theme.js";
+import { colorLogo, theme, microSpinners, type MicroAnimationType } from "./theme.js";
 import { formatDuration, indent, stripAnsi } from "../util/text.js";
 import type { TriageResult } from "../core/types.js";
 
@@ -97,7 +97,7 @@ export class Ui {
     write(`  ${theme.bold(message)}`);
   }
 
-  task(text: string): TaskHandle {
+  task(text: string, type: MicroAnimationType = "thinking"): TaskHandle {
     if (this.json) {
       return {
         update: () => undefined,
@@ -122,10 +122,13 @@ export class Ui {
       };
     }
 
+    const config = microSpinners[type] ?? microSpinners.thinking;
     const spinner = ora({
       text,
-      spinner: "dots12",
-      color: "cyan",
+      spinner: {
+        interval: config.interval,
+        frames: config.frames,
+      },
       stream: process.stdout,
     }).start();
     this.activeTasks.add(spinner);
@@ -156,6 +159,65 @@ export class Ui {
         spinner.stop();
       },
     };
+  }
+
+  agentBox(options: {
+    targetFile: string;
+    extraFiles?: string[];
+    headline: string;
+    todos: Array<{ label: string; done: boolean }>;
+    footer?: string;
+  }): void {
+    if (this.json) return;
+    write();
+
+    // Context files indexed (dim)
+    if (options.extraFiles && options.extraFiles.length > 0) {
+      for (const f of options.extraFiles.slice(0, 3)) {
+        write(`    ${theme.muted(f)}`);
+      }
+      if (options.extraFiles.length > 3) {
+        write(`    ${theme.dim(`${options.extraFiles.length - 3} more files indexed`)}`);
+      }
+      write();
+    }
+
+    const width = 64;
+    const border = theme.muted("─".repeat(width));
+    write(`  ${theme.muted("┌")}${border}${theme.muted("┐")}`);
+
+    // Target pill
+    const targetPadded = `  ${theme.badge(options.targetFile, "#FFFFFF", "#1E1E2E")}`;
+    const padRight1 = Math.max(0, width - stripAnsi(targetPadded).length - 2);
+    write(`  ${theme.muted("│")}${targetPadded}${" ".repeat(padRight1)}${theme.muted("│")}`);
+    write(`  ${theme.muted("│")}${" ".repeat(width)}${theme.muted("│")}`);
+
+    // Headline
+    const hl = `  ${theme.text(options.headline)}`;
+    const padRight2 = Math.max(0, width - stripAnsi(hl).length - 2);
+    write(`  ${theme.muted("│")}${hl}${" ".repeat(padRight2)}${theme.muted("│")}`);
+    write(`  ${theme.muted("│")}${" ".repeat(width)}${theme.muted("│")}`);
+
+    // Working on to-dos
+    const todoHdr = `  ${theme.brand("⬡ Working on " + options.todos.length + " to-dos")}`;
+    const padRight3 = Math.max(0, width - stripAnsi(todoHdr).length - 2);
+    write(`  ${theme.muted("│")}${todoHdr}${" ".repeat(padRight3)}${theme.muted("│")}`);
+
+    for (const todo of options.todos) {
+      const mark = todo.done ? theme.success("☒") : theme.muted("☐");
+      const label = todo.done ? theme.dim(todo.label) : theme.text(todo.label);
+      const line = `    ${mark} ${label}`;
+      const padRight = Math.max(0, width - stripAnsi(line).length - 2);
+      write(`  ${theme.muted("│")}${line}${" ".repeat(padRight)}${theme.muted("│")}`);
+    }
+
+    write(`  ${theme.muted("│")}${" ".repeat(width)}${theme.muted("│")}`);
+    write(`  ${theme.muted("└")}${border}${theme.muted("┘")}`);
+
+    if (options.footer) {
+      write(`  ${theme.dim(options.footer)}`);
+    }
+    write();
   }
 
   diagnosisCard(

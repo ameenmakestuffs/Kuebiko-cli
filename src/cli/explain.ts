@@ -52,7 +52,7 @@ export async function runExplain(errorText: string, options: { provider?: string
   });
 
   if (resolution.provider && resolution.settings && resolution.models.length > 0) {
-    const task = ui.task("Analyzing error with Kuebiko AI Engine");
+    const task = ui.task("Analyzing error & stack trace...", "analyzing");
     try {
       const explanation = await aiChat({
         provider: resolution.provider,
